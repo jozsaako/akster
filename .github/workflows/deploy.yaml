@@ -1,0 +1,110 @@
+name: CI/CD — Build & Deploy to App Service
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+
+jobs:
+  # ─── Job 1: Build & Test ───────────────────────────────────────
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Backend (C#) ──
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          include-prerelease: true
+
+      - name: Restore & Build backend
+        run: |
+          dotnet restore ./backend
+          dotnet build ./backend --no-restore --configuration Release
+
+      # ── Frontend (Angular) ──
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install & Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build -- --configuration production
+
+  # ─── Job 2: Push images to ACR ─────────────────────────────────
+  push-images:
+    name: Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Generate image tag
+        id: meta
+        run: echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Build & push backend image
+        run: |
+          docker build ./backend \
+            -t $ACR_LOGIN_SERVER/backend:${{ steps.meta.outputs.tag }} \
+            -t $ACR_LOGIN_SERVER/backend:latest
+          docker push $ACR_LOGIN_SERVER/backend:${{ steps.meta.outputs.tag }}
+          docker push $ACR_LOGIN_SERVER/backend:latest
+
+      - name: Build & push frontend image
+        run: |
+          docker build ./frontend \
+            -t $ACR_LOGIN_SERVER/frontend:${{ steps.meta.outputs.tag }} \
+            -t $ACR_LOGIN_SERVER/frontend:latest
+          docker push $ACR_LOGIN_SERVER/frontend:${{ steps.meta.outputs.tag }}
+          docker push $ACR_LOGIN_SERVER/frontend:latest
+
+  # ─── Job 3: Deploy to App Service ──────────────────────────────
+  deploy:
+    name: Deploy to App Service
+    runs-on: ubuntu-latest
+    needs: push-images
+    environment: production
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: akster-backend
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/backend:${{ needs.push-images.outputs.image-tag }}
+
+      - name: Deploy frontend
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: akster-frontend
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ needs.push-images.outputs.image-tag }}
