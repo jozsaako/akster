@@ -1,0 +1,49 @@
+<form [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
+  <div class="field">
+    <label for="register-displayName">Display name</label>
+    <input
+      id="register-displayName"
+      type="text"
+      autocomplete="name"
+      formControlName="displayName"
+      placeholder="Jane Doe"
+    />
+    <p class="error" *ngIf="control['displayName'].invalid && control['displayName'].touched">
+      Display name is required for registration.
+    </p>
+  </div>
+
+  <div class="field">
+    <label for="register-email">Email address</label>
+    <input
+      id="register-email"
+      type="email"
+      autocomplete="email"
+      formControlName="email"
+      placeholder="name@example.com"
+    />
+    <p class="error" *ngIf="control['email'].invalid && control['email'].touched">
+      <span *ngIf="control['email'].errors?.['required']">Email is required.</span>
+      <span *ngIf="control['email'].errors?.['email']">Enter a valid email address.</span>
+    </p>
+  </div>
+
+  <div class="field">
+    <label for="register-password">Password</label>
+    <input
+      id="register-password"
+      type="password"
+      autocomplete="new-password"
+      formControlName="password"
+      placeholder="••••••••"
+    />
+    <p class="error" *ngIf="control['password'].invalid && control['password'].touched">
+      <span *ngIf="control['password'].errors?.['required']">Password is required.</span>
+      <span *ngIf="control['password'].errors?.['minlength']">
+        Password must be at least 6 characters.
+      </span>
+    </p>
+  </div>
+
+  <button type="submit" [disabled]="authForm.invalid">Create account</button>
+</form>

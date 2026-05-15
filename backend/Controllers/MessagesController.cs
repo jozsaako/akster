@@ -6,6 +6,7 @@ namespace backend.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class MessagesController : ControllerBase
     {
         private readonly AppDbContext _db;

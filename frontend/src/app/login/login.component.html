@@ -1,0 +1,35 @@
+<form [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
+  <div class="field">
+    <label for="login-email">Email address</label>
+    <input
+      id="login-email"
+      type="email"
+      autocomplete="email"
+      formControlName="email"
+      placeholder="name@example.com"
+    />
+    <p class="error" *ngIf="control['email'].invalid && control['email'].touched">
+      <span *ngIf="control['email'].errors?.['required']">Email is required.</span>
+      <span *ngIf="control['email'].errors?.['email']">Enter a valid email address.</span>
+    </p>
+  </div>
+
+  <div class="field">
+    <label for="login-password">Password</label>
+    <input
+      id="login-password"
+      type="password"
+      autocomplete="current-password"
+      formControlName="password"
+      placeholder="••••••••"
+    />
+    <p class="error" *ngIf="control['password'].invalid && control['password'].touched">
+      <span *ngIf="control['password'].errors?.['required']">Password is required.</span>
+      <span *ngIf="control['password'].errors?.['minlength']">
+        Password must be at least 6 characters.
+      </span>
+    </p>
+  </div>
+
+  <button type="submit" [disabled]="authForm.invalid">Login</button>
+</form>
