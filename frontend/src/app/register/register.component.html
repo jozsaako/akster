@@ -1,49 +1,81 @@
-<form [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
-  <div class="field">
-    <label for="register-displayName">Display name</label>
-    <input
-      id="register-displayName"
-      type="text"
-      autocomplete="name"
-      formControlName="displayName"
-      placeholder="Jane Doe"
-    />
-    <p class="error" *ngIf="control['displayName'].invalid && control['displayName'].touched">
-      Display name is required for registration.
-    </p>
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <div class="name-row">
+    <div class="field">
+      <label class="field__label" for="reg-firstName">First name</label>
+      <input
+        id="reg-firstName"
+        class="field__input"
+        [class.field__input--invalid]="form.controls.firstName.invalid && form.controls.firstName.touched"
+        type="text"
+        autocomplete="given-name"
+        formControlName="firstName"
+        placeholder="Jane"
+      />
+      @if (form.controls.firstName.invalid && form.controls.firstName.touched) {
+        <p class="field__error">First name is required.</p>
+      }
+    </div>
+
+    <div class="field">
+      <label class="field__label" for="reg-lastName">Last name</label>
+      <input
+        id="reg-lastName"
+        class="field__input"
+        [class.field__input--invalid]="form.controls.lastName.invalid && form.controls.lastName.touched"
+        type="text"
+        autocomplete="family-name"
+        formControlName="lastName"
+        placeholder="Doe"
+      />
+      @if (form.controls.lastName.invalid && form.controls.lastName.touched) {
+        <p class="field__error">Last name is required.</p>
+      }
+    </div>
   </div>
 
   <div class="field">
-    <label for="register-email">Email address</label>
+    <label class="field__label" for="reg-email">Email address</label>
     <input
-      id="register-email"
+      id="reg-email"
+      class="field__input"
+      [class.field__input--invalid]="form.controls.email.invalid && form.controls.email.touched"
       type="email"
       autocomplete="email"
       formControlName="email"
       placeholder="name@example.com"
     />
-    <p class="error" *ngIf="control['email'].invalid && control['email'].touched">
-      <span *ngIf="control['email'].errors?.['required']">Email is required.</span>
-      <span *ngIf="control['email'].errors?.['email']">Enter a valid email address.</span>
-    </p>
+    @if (form.controls.email.invalid && form.controls.email.touched) {
+      <p class="field__error">
+        @if (form.controls.email.errors?.['required']) { Email is required. }
+        @else { Enter a valid email address. }
+      </p>
+    }
   </div>
 
   <div class="field">
-    <label for="register-password">Password</label>
+    <label class="field__label" for="reg-password">Password</label>
     <input
-      id="register-password"
+      id="reg-password"
+      class="field__input"
+      [class.field__input--invalid]="form.controls.password.invalid && form.controls.password.touched"
       type="password"
       autocomplete="new-password"
       formControlName="password"
       placeholder="••••••••"
     />
-    <p class="error" *ngIf="control['password'].invalid && control['password'].touched">
-      <span *ngIf="control['password'].errors?.['required']">Password is required.</span>
-      <span *ngIf="control['password'].errors?.['minlength']">
-        Password must be at least 6 characters.
-      </span>
-    </p>
+    @if (form.controls.password.invalid && form.controls.password.touched) {
+      <p class="field__error">
+        @if (form.controls.password.errors?.['required']) { Password is required. }
+        @else { Password must be at least 8 characters. }
+      </p>
+    }
   </div>
 
-  <button type="submit" [disabled]="authForm.invalid">Create account</button>
+  @if (errorMessage()) {
+    <p class="form-error">{{ errorMessage() }}</p>
+  }
+
+  <button class="submit-btn" type="submit" [disabled]="isSubmitting()">
+    {{ isSubmitting() ? 'Creating account…' : 'Create account' }}
+  </button>
 </form>

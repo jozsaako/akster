@@ -1,3 +1,12 @@
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  profilePictureUrl?: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -10,11 +19,25 @@ export interface RegisterCredentials {
     lastName?: string;
 }
 
+export interface ChangeRoleRequest {
+  Role: UserRole;
+}
+
+export interface UpdateProfileRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 export interface AuthResult {
   success: boolean;
-  user?: {
-    displayName?: string;
-    email: string;
-  };
+  user?: User;
   message?: string;
+  token: string;
+  refreshToken: string;
+}
+
+export enum UserRole {
+    Owner = 'Owner',
+    Sitter = 'Sitter',
 }

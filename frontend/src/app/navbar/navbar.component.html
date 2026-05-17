@@ -1,0 +1,48 @@
+<header class="navbar">
+  <a class="navbar__brand" routerLink="/home">PetPal</a>
+
+  <nav class="navbar__links">
+    <a routerLink="/home" routerLinkActive="active">Home</a>
+  </nav>
+
+  <div class="navbar__actions">
+    <span class="role-badge" [class.role-badge--sitter]="userService.currentUser()?.role === 'Sitter'">
+      {{ userService.currentUser()?.role }}
+    </span>
+
+    <button
+      class="btn btn--ghost"
+      (click)="switchRole()"
+      [disabled]="isSwitchingRole()"
+    >
+      {{ isSwitchingRole() ? '…' : 'Switch to ' + oppositeRole }}
+    </button>
+
+    <div class="navbar__user">
+      <button class="navbar__avatar-btn" (click)="toggleDropdown($event)" type="button">
+        @if (userService.currentUser()?.profilePictureUrl) {
+          <img class="navbar__avatar-img" [src]="userService.currentUser()!.profilePictureUrl" alt="Profile" />
+        } @else {
+          <span class="navbar__avatar-initials">{{ initials }}</span>
+        }
+        <svg class="navbar__chevron" [class.navbar__chevron--open]="dropdownOpen()" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      @if (dropdownOpen()) {
+        <div class="navbar__dropdown" (click)="$event.stopPropagation()">
+          <a class="navbar__dropdown-item" routerLink="/profile" (click)="dropdownOpen.set(false)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            Profile
+          </a>
+          <hr class="navbar__dropdown-divider" />
+          <button class="navbar__dropdown-item navbar__dropdown-item--danger" (click)="logout()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Logout
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

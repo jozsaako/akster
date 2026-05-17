@@ -1,0 +1,90 @@
+<div class="profile-shell">
+  <section class="profile-card">
+
+    <button
+      class="profile-card__avatar-btn"
+      type="button"
+      [disabled]="isUploadingAvatar()"
+      (click)="triggerFileInput()"
+      title="Change profile picture"
+    >
+      @if (avatarUrl) {
+        <img class="profile-card__avatar-img" [src]="avatarUrl" alt="Profile picture" />
+      } @else {
+        <span class="profile-card__avatar-initials">{{ initials }}</span>
+      }
+      <span class="profile-card__avatar-overlay">
+        @if (isUploadingAvatar()) { Uploading… } @else { Change }
+      </span>
+    </button>
+
+    <input
+      #fileInput
+      type="file"
+      accept="image/jpeg,image/png,image/gif,image/webp"
+      style="display:none"
+      (change)="onFileSelected($event)"
+    />
+
+    <h1 class="profile-card__name">
+      {{ form.value.firstName || '—' }} {{ form.value.lastName || '' }}
+    </h1>
+
+    <span class="role-badge" [class.role-badge--sitter]="userService.currentUser()?.role === 'Sitter'">
+      {{ userService.currentUser()?.role }}
+    </span>
+
+    <form class="profile-form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="field">
+        <label class="field__label" for="firstName">First name</label>
+        <input
+          id="firstName"
+          class="field__input"
+          [class.field__input--invalid]="form.controls.firstName.invalid && form.controls.firstName.touched"
+          type="text"
+          formControlName="firstName"
+          autocomplete="given-name"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="lastName">Last name</label>
+        <input
+          id="lastName"
+          class="field__input"
+          [class.field__input--invalid]="form.controls.lastName.invalid && form.controls.lastName.touched"
+          type="text"
+          formControlName="lastName"
+          autocomplete="family-name"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="email">Email</label>
+        <input
+          id="email"
+          class="field__input"
+          [class.field__input--invalid]="form.controls.email.invalid && form.controls.email.touched"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+        />
+      </div>
+
+      @if (errorMessage()) {
+        <p class="message message--error">{{ errorMessage() }}</p>
+      }
+      @if (successMessage()) {
+        <p class="message message--success">{{ successMessage() }}</p>
+      }
+
+      <button
+        class="save-btn"
+        type="submit"
+        [disabled]="form.invalid || form.pristine || isSaving()"
+      >
+        {{ isSaving() ? 'Saving…' : 'Save changes' }}
+      </button>
+    </form>
+  </section>
+</div>

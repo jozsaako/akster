@@ -1,56 +1,38 @@
-<main class="login-shell">
-  <section class="hero">
-    <div class="hero__badge">Akster</div>
-    <div class="hero__content">
-      <p class="hero__eyebrow">Secure access</p>
-      <h1 class="hero__title">
-        <span *ngIf="mode() === 'register'">Create your account</span>
-        <span *ngIf="mode() === 'login'">Welcome back</span>
-      </h1>
-      <p class="hero__subtitle">
-        <span *ngIf="mode() === 'register'">
-          Register once and sign in to your workspace securely.
-        </span>
-        <span *ngIf="mode() === 'login'">
-          Sign in to continue to your dashboard.
-        </span>
-      </p>
-    </div>
-  </section>
+<main class="auth-shell">
+  <section class="auth-card">
+    <div class="auth-card__brand">PetPal</div>
 
-  <section class="card" aria-labelledby="auth-heading">
-    <h2 id="auth-heading" class="sr-only">Authentication form</h2>
+    <div class="auth-card__header">
+      @if (mode() === 'login') {
+        <h1>Welcome back</h1>
+        <p>Sign in to continue to your dashboard.</p>
+      } @else {
+        <h1>Create your account</h1>
+        <p>Register once and start connecting with pet sitters.</p>
+      }
+    </div>
+
     <div class="tab-list" role="tablist" aria-label="Authentication mode">
       <button
         type="button"
         role="tab"
-        [attr.aria-selected]="mode() === 'login'"
         [class.active]="mode() === 'login'"
+        [attr.aria-selected]="mode() === 'login'"
         (click)="setMode('login')"
-      >
-        Login
-      </button>
+      >Login</button>
       <button
         type="button"
         role="tab"
-        [attr.aria-selected]="mode() === 'register'"
         [class.active]="mode() === 'register'"
+        [attr.aria-selected]="mode() === 'register'"
         (click)="setMode('register')"
-      >
-        Register
-      </button>
+      >Register</button>
     </div>
 
-    <app-login *ngIf="mode() === 'login'"></app-login>
-    <app-register *ngIf="mode() === 'register'"></app-register>
-
-    <div class="switch-hint">
-      <span *ngIf="mode() === 'login'">New here?</span>
-      <span *ngIf="mode() === 'register'">Already have an account?</span>
-      <button type="button" class="link-button" (click)="setMode(mode() === 'login' ? 'register' : 'login')">
-        <span *ngIf="mode() === 'login'">Create one now</span>
-        <span *ngIf="mode() === 'register'">Sign in instead</span>
-      </button>
-    </div>
+    @if (mode() === 'login') {
+      <app-login />
+    } @else {
+      <app-register />
+    }
   </section>
 </main>

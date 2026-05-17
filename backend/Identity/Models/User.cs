@@ -10,5 +10,7 @@ namespace backend.Identity.Models
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public bool IsEmailConfirmed { get; set; }
+        public UserRole Role { get; set; } = UserRole.Owner;
+        public string? ProfilePictureUrl { get; set; }
     }
 }

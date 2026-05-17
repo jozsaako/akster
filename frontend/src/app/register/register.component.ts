@@ -1,6 +1,5 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { NgIf } from '@angular/common';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { UserService } from '../services/user.service';
@@ -8,44 +7,50 @@ import { UserService } from '../services/user.service';
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [NgIf, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './register.component.html',
   styleUrls: ['./register.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegisterComponent {
-  protected authForm: FormGroup;
+  protected readonly errorMessage = signal<string | null>(null);
+  protected readonly isSubmitting = signal(false);
+
+  protected readonly form = new FormGroup({
+    firstName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    lastName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
+    password: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(8)] }),
+  });
 
   constructor(
-    private readonly fb: FormBuilder,
     private readonly userService: UserService,
-    private readonly router: Router
-  ) {
-    this.authForm = this.fb.group({
-      displayName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-    });
-  }
+    private readonly router: Router,
+  ) {}
 
   protected async submit(): Promise<void> {
-    if (this.authForm.invalid) {
-      this.authForm.markAllAsTouched();
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       return;
     }
 
-    const result = await firstValueFrom(
-      this.userService.register(this.authForm.value)
-    );
+    this.isSubmitting.set(true);
+    this.errorMessage.set(null);
 
-    console.log(result);
-    if (result.success) {
-      this.userService.setLoggedIn(true);
-      await this.router.navigate(['/home']);
+    try {
+      const result = await firstValueFrom(this.userService.register(this.form.getRawValue()));
+
+      if (result.success && result.user) {
+        this.userService.setTokens(result.token, result.refreshToken);
+        this.userService.setUser(result.user);
+        await this.router.navigate(['/home']);
+      } else {
+        this.errorMessage.set(result.message ?? 'Registration failed. Please try again.');
+      }
+    } catch {
+      this.errorMessage.set('Could not reach the server. Please try again.');
+    } finally {
+      this.isSubmitting.set(false);
     }
-  }
-
-  protected get control() {
-    return this.authForm.controls;
   }
 }

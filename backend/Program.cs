@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Azure.Security.KeyVault.Secrets;
 using backend;
 using backend.Identity.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -32,6 +33,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register Identity services
+builder.Services.AddScoped<IBlobService, BlobService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Configure JWT authentication

@@ -13,6 +13,10 @@ namespace backend.Identity.Services
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RefreshAsync(RefreshRequest request);
         Task<bool> RevokeRefreshTokenAsync(string refreshToken);
+        Task<AuthResponse> ChangeRoleAsync(int userId, string newRole);
+        Task<AuthResponse> GetCurrentUserAsync(int userId);
+        Task<AuthResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request);
+        Task<AuthResponse> UploadAvatarAsync(int userId, IFormFile file);
     }
 
     public class AuthService : IAuthService
@@ -20,12 +24,14 @@ namespace backend.Identity.Services
         private readonly AppDbContext _context;
         private readonly ILogger<AuthService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IBlobService _blobService;
 
-        public AuthService(AppDbContext context, ILogger<AuthService> logger, IConfiguration configuration)
+        public AuthService(AppDbContext context, ILogger<AuthService> logger, IConfiguration configuration, IBlobService blobService)
         {
             _context = context;
             _logger = logger;
             _configuration = configuration;
+            _blobService = blobService;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -97,7 +103,9 @@ namespace backend.Identity.Services
                         Id = user.Id,
                         Email = user.Email,
                         FirstName = user.FirstName,
-                        LastName = user.LastName
+                        LastName = user.LastName,
+                        Role = user.Role.ToString(),
+                        ProfilePictureUrl = user.ProfilePictureUrl
                     },
                     Token = GenerateJwtToken(user),
                     RefreshToken = refreshToken
@@ -141,7 +149,9 @@ namespace backend.Identity.Services
                         Id = user.Id,
                         Email = user.Email,
                         FirstName = user.FirstName,
-                        LastName = user.LastName
+                        LastName = user.LastName,
+                        Role = user.Role.ToString(),
+                        ProfilePictureUrl = user.ProfilePictureUrl
                     },
                     Token = GenerateJwtToken(user),
                     RefreshToken = await CreateAndSaveRefreshTokenAsync(user.Id)
@@ -220,7 +230,7 @@ namespace backend.Identity.Services
                 {
                     Success = true,
                     Message = "Token refreshed.",
-                    User = new UserDto { Id = user.Id, Email = user.Email, FirstName = user.FirstName, LastName = user.LastName },
+                    User = new UserDto { Id = user.Id, Email = user.Email, FirstName = user.FirstName, LastName = user.LastName, Role = user.Role.ToString(), ProfilePictureUrl = user.ProfilePictureUrl },
                     Token = newJwt,
                     RefreshToken = newRefresh
                 };
@@ -305,7 +315,8 @@ namespace backend.Identity.Services
                     new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, user.Email),
                     new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.GivenName, user.FirstName),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Surname, user.LastName)
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Surname, user.LastName),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, user.Role.ToString())
                 };
 
                 var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
@@ -322,6 +333,161 @@ namespace backend.Identity.Services
             {
                 _logger.LogError($"Error generating JWT: {ex.Message}");
                 return null;
+            }
+        }
+
+        public async Task<AuthResponse> GetCurrentUserAsync(int userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null)
+                return new AuthResponse { Success = false, Message = "User not found." };
+
+            return new AuthResponse
+            {
+                Success = true,
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Role = user.Role.ToString(),
+                    ProfilePictureUrl = user.ProfilePictureUrl
+                }
+            };
+        }
+
+        public async Task<AuthResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.FirstName) ||
+                    string.IsNullOrWhiteSpace(request.LastName) ||
+                    string.IsNullOrWhiteSpace(request.Email))
+                    return new AuthResponse { Success = false, Message = "All fields are required." };
+
+                if (!IsValidEmail(request.Email))
+                    return new AuthResponse { Success = false, Message = "Invalid email format." };
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                    return new AuthResponse { Success = false, Message = "User not found." };
+
+                var emailTaken = await _context.Users
+                    .AnyAsync(u => u.Email == request.Email && u.Id != userId);
+                if (emailTaken)
+                    return new AuthResponse { Success = false, Message = "Email is already in use." };
+
+                user.FirstName = request.FirstName.Trim();
+                user.LastName = request.LastName.Trim();
+                user.Email = request.Email.Trim();
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                return new AuthResponse
+                {
+                    Success = true,
+                    Message = "Profile updated.",
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Email = user.Email,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Role = user.Role.ToString(),
+                        ProfilePictureUrl = user.ProfilePictureUrl
+                    },
+                    Token = GenerateJwtToken(user)
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error updating profile: {ex.Message}");
+                return new AuthResponse { Success = false, Message = "An error occurred while updating your profile." };
+            }
+        }
+
+        public async Task<AuthResponse> ChangeRoleAsync(int userId, string newRole)
+        {
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                {
+                    return new AuthResponse { Success = false, Message = "User not found." };
+                }
+
+                if (!Enum.TryParse<UserRole>(newRole, true, out var roleValue))
+                {
+                    return new AuthResponse { Success = false, Message = "Invalid role. Valid roles are: Owner, Sitter." };
+                }
+
+                user.Role = roleValue;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"User {user.Email} changed role to {roleValue}");
+
+                return new AuthResponse
+                {
+                    Success = true,
+                    Message = "Role changed successfully.",
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Email = user.Email,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Role = user.Role.ToString(),
+                        ProfilePictureUrl = user.ProfilePictureUrl
+                    },
+                    Token = GenerateJwtToken(user)
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error changing role: {ex.Message}");
+                return new AuthResponse { Success = false, Message = "An error occurred while changing role." };
+            }
+        }
+
+        public async Task<AuthResponse> UploadAvatarAsync(int userId, IFormFile file)
+        {
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                    return new AuthResponse { Success = false, Message = "User not found." };
+
+                var url = await _blobService.UploadAvatarAsync(userId, file);
+
+                user.ProfilePictureUrl = url;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                return new AuthResponse
+                {
+                    Success = true,
+                    Message = "Avatar uploaded.",
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Email = user.Email,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Role = user.Role.ToString(),
+                        ProfilePictureUrl = user.ProfilePictureUrl
+                    }
+                };
+            }
+            catch (ArgumentException ex)
+            {
+                return new AuthResponse { Success = false, Message = ex.Message };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error uploading avatar: {ex.Message}");
+                return new AuthResponse { Success = false, Message = "An error occurred while uploading the avatar." };
             }
         }
     }
