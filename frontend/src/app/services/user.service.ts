@@ -3,13 +3,14 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { AuthResult, ChangeRoleRequest, LoginCredentials, RegisterCredentials, UpdateProfileRequest, User, UserRole } from '../models/user.model';
 import { TokenService } from './token.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
 
-  private static readonly BASE_URL = 'http://localhost:5072/api/auth';
+  private static readonly BASE_URL = environment.apiBaseUrl;
   private static readonly LOGIN_URL = `${UserService.BASE_URL}/login`;
   private static readonly REGISTER_URL = `${UserService.BASE_URL}/register`;
   private static readonly CHANGE_ROLE_URL = `${UserService.BASE_URL}/change-role`;
