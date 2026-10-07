@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package*.json .
 RUN npm ci
 COPY . .
-RUN npx ng build frontend --configuration production
+RUN npx nx build frontend --configuration production
 
 # Runtime stage
 FROM nginx:alpine AS runtime
