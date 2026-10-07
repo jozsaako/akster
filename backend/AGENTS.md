@@ -103,3 +103,5 @@ PetSitting.Api/
 4. Do not introduce NgRx-style state management concepts here — this is backend-only guidance (see `frontend-architecture.md` for frontend rules).
 5. Do not propose switching to iDesign, a full N-tier layered architecture, or re-introducing generic Repository/UoW unless the user explicitly asks to revisit the architecture itself.
 6. Use `Result<T>` for expected failures; use exceptions only for unexpected/exceptional situations.
+7. Register every new repository and service in `PetSitting.Api/Program.cs` (handlers and validators are discovered automatically; repositories are not).
+8. Take `UserId` from the JWT (`ApiControllerBase.UserId`), never from a request body, and check that the loaded record belongs to that user.

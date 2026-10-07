@@ -80,6 +80,195 @@ Repository layout:
 - A `ValidationException` is converted by the global exception handler in `Program.cs` into `400 { success:false, message }`; any other exception becomes `500 { success:false, message:"An unexpected error occurred." }`.
 - Handlers return response records (`AuthResponse`, `PetResponse`, `AvailabilityResponse`) carrying `Success`/`Message`. A `Result<T>` type exists in the Domain but handlers currently use these response records.
 
+### MediatR in detail
+
+**What it is.** MediatR is an in-process mediator: the caller builds a small request object (a `record` implementing `IRequest<TResponse>`) and calls `_mediator.Send(request)`. MediatR finds the single `IRequestHandler<TRequest,TResponse>` for that type and runs it. The caller never references the handler class, and the handler never knows who called it. It adds no network hop or message broker; it is a typed dispatch table inside the API process.
+
+**How it is wired here**
+- Registration (`Program.cs`): `AddMediatR(c => c.RegisterServicesFromAssemblyContaining(typeof(LoginCommand)))` scans the Application assembly and registers every handler automatically, so adding a use case needs no DI edits. `AddOpenBehavior(typeof(ValidationBehavior<,>))` adds the pipeline step described below.
+- Packages: version 12.4.0 in `PetSitting.Api` and `PetSitting.Application`.
+- Naming: every use case is a folder `Features/<Area>/<UseCase>/` containing `XCommand` or `XQuery` (the request), `XCommandHandler` (the logic) and optionally `XCommandValidator`. 17 handlers exist today: Identity (8), Pets (7) and Availability (2).
+- Commands change state (`Login`, `Register`, `CreatePet`, `UpsertAvailability`, ...); queries only read (`GetPets`, `GetPet`, `GetAvailability`, `GetCurrentUser`). That is the CQRS split from the architecture guide, here at the code-organisation level only (same database for reads and writes).
+
+**What a request goes through**
+
+```
+AuthController.Login(command)
+   └─ mediator.Send(command)
+        └─ ValidationBehavior<LoginCommand,AuthResponse>   ← pipeline step
+             ├─ runs every IValidator<LoginCommand> (FluentValidation)
+             ├─ any failure → throws ValidationException → Program.cs handler → 400 { success:false, message }
+             └─ ok → LoginCommandHandler.Handle(...) → repositories → EF Core
+```
+
+`ValidationBehavior` is the only pipeline behavior today. Because it wraps *every* request, no handler repeats validation code, and a new command gets validation just by having a validator class next to it.
+
+**Why we use it (the reasons in this project)**
+1. **Thin controllers.** A controller action is "build request, send, map result to HTTP status". Business logic cannot leak into controllers, which the guide requires.
+2. **One slice per use case.** Request, validator and handler are one folder, so the whole flow of "upload pet picture" is readable in one place. MediatR's one-request-one-handler rule is what makes that folder structure natural, instead of large `PetService` / `AuthService` classes. This repo actually shows the before and after: the legacy `backend/Identity/Services/AuthService.cs` and `Pets/Services/PetService.cs` were service classes holding many methods; the new code splits them into small handlers.
+3. **Cross-cutting concerns in one place.** Validation today; logging, authorization checks or transactions can be added later as further behaviors without touching any handler (the guide lists these as intended).
+4. **Testability.** A handler depends only on repository/service interfaces, so it can be unit-tested with fakes, with no HTTP stack.
+5. **Low ceremony for a solo developer.** Auto-registration and convention naming mean very little wiring to maintain.
+
+**Why it was "needed"**
+It is not technically required: the same app could be written with plain services and direct calls. It was chosen deliberately in `backend/AGENTS.md` (decision 3, "CQRS via MediatR"), together with vertical slices, because the planned domain (bookings, scheduling conflicts, cancellation policies, pricing, matching) will grow many use cases that need shared cross-cutting rules. The guide also lists it as part of the stack for domain events (`INotification`) so aggregates can raise events like `BookingConfirmed` without knowing about emails or notifications.
+
+**Where the current code does not yet use its full value**
+- No domain events are published yet. `DomainEvent` exists in the Domain project, but it does not implement `INotification` and nothing calls `Publish`.
+- Only one behavior exists. There is no logging, authorization or transaction behavior (the behaviors README lists them as planned).
+- Handlers return response records (`AuthResponse`, `PetResponse`, `AvailabilityResponse`) with `Success`/`Message`; the guide's `Result<T>` exists in the Domain but is unused by handlers. Controllers also infer 404 vs 400 by searching the message text for "not found", which is fragile; typed failure results would fix it.
+- Authorization of ownership (a user may only touch their own pets) is repeated inside each handler (`pet.UserId != request.UserId`), a good candidate for a behavior or a shared check.
+- Several handlers (`Login`, `Register`, `ChangeRole`...) are called by exactly one controller action, so the indirection mainly buys consistency, not reuse.
+
+**Trade-offs to know**
+- *Indirection:* "go to definition" on `Send(...)` does not jump to the handler; you find it by naming convention or search. Mitigated by the folder convention.
+- *Hidden dependencies:* behaviors run implicitly, so a request can fail before reaching its handler; the exception-to-400 mapping in `Program.cs` is what makes that visible to clients.
+- *Licensing:* MediatR 13 and later moved to a commercial license model for larger companies, while 12.x remains Apache-2.0. The Api/Application projects pin 12.4.0, but the legacy root `backend.csproj` references 14.2.0. Check the current license terms before upgrading, or consider a small hand-written dispatcher (the pattern is only a few dozen lines) if that becomes a concern.
+- *Runtime failures:* a request without a registered handler only fails when sent, not at compile time.
+
+### Navigating and debugging one request (worked example: "add a pet")
+
+Paths are relative to `backend/`. Every use case follows the same ten stops; replace `Pets/CreatePet` with any other slice.
+
+| # | Stop | File | What to look at / where to put a breakpoint |
+|---|---|---|---|
+| 0 | Browser call | `frontend/src/app/services/pet.service.ts` (`createPet`), triggered from `frontend/src/app/profile/profile.component.ts` | URL, JSON body, `Authorization` header. Check the Network tab first: status code and response JSON tell you which stop to jump to. |
+| 1 | Pipeline (auth) | `PetSitting.Api/Program.cs` | CORS, `UseAuthentication`/`UseAuthorization`. A `401` never reaches the controller: bad/expired token, or JWT key/issuer/audience mismatch. |
+| 2 | Controller | `PetSitting.Api/Controllers/PetsController.cs` → `CreatePet` | **Best first breakpoint.** Confirms the request arrived and `UserId` (from `ApiControllerBase.UserId`, the JWT claim) is right. |
+| 3 | Request body shape | `PetSitting.Api/Contracts/Requests.cs` (`PetRequest`) | If a field is null/default, the JSON names do not match this record (model binding failed before your code ran, a `400` with ASP.NET's own error shape). |
+| 4 | The request object | `PetSitting.Application/Features/Pets/CreatePet/CreatePetCommand.cs` | The record the controller builds. It declares its response type: `IRequest<PetResponse>`, which is your pointer to the handler's return type. |
+| 5 | Validation | `.../CreatePet/CreatePetCommandValidator.cs`, run by `PetSitting.Application/Common/Behaviors/ValidationBehavior.cs` | Breakpoint in `ValidationBehavior.Handle` to see all validators and failures. Failure throws `ValidationException`, mapped to `400 { success:false, message }` by the exception handler in `Program.cs` (the handler is never reached). |
+| 6 | **The handler** | `.../CreatePet/CreatePetCommandHandler.cs` → `Handle` | **Where the logic is.** Business decisions and "Pet not found"-style failures are returned from here as `PetResponse(false, ...)`. |
+| 7 | Repository interface | `PetSitting.Application/Abstractions/Repositories/IPetRepository.cs` | The contract the handler calls. |
+| 8 | Repository implementation | `PetSitting.Infrastructure/Persistence/Repositories/PetRepository.cs` | The EF Core query/`SaveChangesAsync`. SQL errors surface here. |
+| 9 | Model and schema | `PetSitting.Domain/Pets/Pet.cs`, `PetSitting.Infrastructure/Persistence/AppDbContext.cs`, `PetSitting.Infrastructure/Migrations/` | Entity shape, relations, delete behavior; a missing column means a missing migration. |
+| 10 | Response | `PetSitting.Application/Features/Pets/PetResponse.cs` (contains `PetDto` and `ToDto()`), then back in the controller | The controller maps `Success`/`Message` to HTTP status (`Respond()` in `ApiControllerBase.cs`: message containing "not found" → 404, else 400). |
+
+**How to find any handler without remembering the layout**
+- From a controller action, take the command name (e.g. `CreatePetCommand`) and use *Go to Definition* on it; its folder holds the handler and validator side by side. `Shift+F12` / *Find All References* on the command class lists the controller call plus the handler.
+- Search for the class name `CreatePetCommandHandler` (Visual Studio: `Ctrl+T`; VS Code: `Ctrl+P`), or search for `IRequestHandler<CreatePetCommand`.
+- In a handler, *Go to Definition* on `_pets.AddAsync` lands on the interface; use *Go to Implementation* (`Ctrl+F12`) to reach `PetRepository`.
+- Handler folders are named after the controller action: action `UploadPicture` → `UploadPetPicture`, `GetMe` → `GetCurrentUser`, `UpdateMe` → `UpdateProfile`, `UpsertAvailability` → `UpsertAvailability`. The controller is the index of the feature.
+
+**Debugging checklist by symptom**
+
+| Symptom | Likely stop | Check |
+|---|---|---|
+| 401 | 1 | Token missing/expired, `Jwt:*` settings, `Jwt--Key` loaded? (backend log "Loaded Jwt:Key from Key Vault.") |
+| 400 with `{ success:false, message }` | 5 or 6 | Message text: validator rule (step 5) or handler failure (step 6). Search the repo for that exact string; it points to the file. |
+| 400 with ASP.NET `errors` object | 3 | Body does not match the request record |
+| 404 | 6 / 10 | Handler returned a "... not found." message (also what a wrong-owner pet looks like) |
+| 500 "An unexpected error occurred." | 6-8 | Exception swallowed by the global handler. Run locally and read the console, or break on exceptions; the message never reaches the client. |
+| Works locally, fails in Azure | config | App settings / Key Vault (section 1.6), DB connectivity and migrations |
+
+**Debugging tips specific to MediatR**
+- Put breakpoints at stop 2 and stop 6 and step with *Step Into* from `Send`: it goes through `ValidationBehavior` and then into the handler.
+- Behaviors run for every request; a breakpoint in `ValidationBehavior.Handle` with a condition such as `request.GetType().Name == "CreatePetCommand"` isolates one use case.
+- "Handler not found" (`InvalidOperationException: No service for type IRequestHandler<...>`) means the handler is not in the scanned assembly (`PetSitting.Application`) or its class does not implement the interface.
+- Handlers are registered by scanning, so a typo in the generic types compiles fine and fails only when the request is sent.
+
+**Adding a new use case (same map in reverse)**
+1. Create folder `Application/Features/<Area>/<UseCase>/` with `...Command.cs` (or `...Query.cs`), `...Handler.cs`, optional `...Validator.cs`. No DI registration needed.
+2. Add the controller action in `Api/Controllers/<Area>Controller.cs`, and a request record in `Api/Contracts/Requests.cs` if it takes a body.
+3. If it needs new data access, add the method to the repository interface (`Application/Abstractions/Repositories`) and implement it in `Infrastructure/Persistence/Repositories`.
+4. If the schema changes, add a migration (`dotnet ef migrations add <Name>` with `PetSitting.Infrastructure` as the project and `PetSitting.Api` as the startup project).
+5. Add the call in the frontend service (`frontend/src/app/services/`) and the model in `models/user.model.ts`.
+
+### Implementing a feature end to end
+
+The worked example is **illustrative** ("an owner requests a booking from a sitter"): nothing named `Booking` exists yet. It was picked because it touches every layer, including a real domain rule. Paths are relative to `backend/` unless prefixed `frontend/`. Follow the order below, inside-out, so each step compiles on its own and you can stop after any step.
+
+#### Before you start (5 minutes, saves hours)
+1. **Write down the use case in one sentence and its failure cases.** "Owner requests a booking for a pet from a sitter for a date range. Fails if: sitter not found or not a Sitter, pet not yours, dates in the past or end before start, sitter not available, overlaps an accepted booking."
+2. **Decide command or query.** Changes data → command. Only reads → query.
+3. **Decide who may call it.** Which role, and which resource must belong to the caller. Authorization is part of the use case, not an afterthought.
+4. **Name the slice** `<Verb><Noun>` (`RequestBooking`) and the area folder (`Bookings`). Everything below is named from it.
+5. **Check the architecture guides** (`backend/AGENTS.md`, `frontend/AGENTS.md`): a new area means a new `Features/<Area>/` folder; rules on aggregates; no generic repository.
+
+#### Step 1: Domain (`PetSitting.Domain/Bookings/`)
+- Create the aggregate `Booking.cs` (Id, OwnerId, SitterId, PetId, start/end, `BookingStatus`, CreatedAt, UpdatedAt) and `BookingStatus.cs` (enum: Requested, Accepted, Declined, Cancelled, Completed).
+- Put **rules on the entity**, not in the handler: methods such as `Accept()` and `Cancel()` that refuse illegal state changes. (Today's entities only have public setters; for bookings prefer methods so the rules cannot be bypassed.)
+- Use a value object for concepts without identity (`DateRange`, which enforces "start < end" in its constructor) rather than two loose `DateTime`s.
+- Add navigation properties or foreign keys to `User` / `Pet` only if you need them.
+- *Don't forget:* store times in **UTC** (the code uses `DateTime.UtcNow`); enums are stored as **int**, so never reorder or renumber existing enum members.
+
+#### Step 2: Persistence (`PetSitting.Infrastructure/Persistence/`)
+1. `AppDbContext.cs`: add `DbSet<Booking> Bookings` and the relationship configuration in `OnModelCreating` (foreign keys, `OnDelete` behavior). **Think about delete behavior:** deleting a user or pet that has bookings should not silently cascade away booking history; prefer `Restrict` and decide the product rule.
+2. Generate the migration:
+   ```bash
+   dotnet ef migrations add AddBookingsTable -p PetSitting.Infrastructure -s PetSitting.Api
+   ```
+3. **Open the generated migration file and read it.** Check that it only contains your change, plus the column types (`datetime2`, `nvarchar`) and indexes. Add indexes for columns you will filter on (`SitterId`, date range).
+4. *Don't forget:* the API runs `Database.Migrate()` **automatically at startup, including in Azure**. A bad or destructive migration is applied to the production database on the next deploy. Test it on a local database first, and make breaking changes in two steps (add, deploy, then remove).
+
+#### Step 3: Application contracts and data access
+- `PetSitting.Application/Abstractions/Repositories/IBookingRepository.cs`: only the methods the use cases need (`GetByIdAsync`, `AddAsync`, `HasOverlapAsync(sitterId, range)`). One repository per **aggregate root**, no generic `IRepository<T>`.
+- `PetSitting.Infrastructure/Persistence/Repositories/BookingRepository.cs`: the implementation (`Include` what the handler needs; return `null` when not found).
+- **Register it in `PetSitting.Api/Program.cs`:** `builder.Services.AddScoped<IBookingRepository, BookingRepository>();`. Handlers, validators and MediatR behaviors are found by assembly scanning, but **repositories and services are not**. A missing line compiles fine and fails at runtime with "Unable to resolve service for type IBookingRepository".
+
+#### Step 4: The slice (`PetSitting.Application/Features/Bookings/RequestBooking/`)
+Create these files (namespaces follow the folder):
+1. `RequestBookingCommand.cs`: `record RequestBookingCommand(int UserId, int SitterId, int PetId, DateTime StartUtc, DateTime EndUtc) : IRequest<BookingResponse>;`
+   - **`UserId` comes from the JWT, never from the request body** (the controller fills it in). This is the most important security rule in the app.
+2. `RequestBookingCommandValidator.cs` (FluentValidation): **shape and format only**: ids > 0, end after start, start not in the past, text lengths. Anything that needs the database belongs in the handler.
+3. `RequestBookingCommandHandler.cs`: load what you need through repositories and check, in this order, using the same style as today (`new BookingResponse(false, "...")`):
+   1. the caller owns the pet (return "Pet not found." for both missing and foreign pets, so ids cannot be probed),
+   2. the target user exists and has role Sitter,
+   3. the sitter's availability and capacity allow it (reuse `ISitterAvailabilityRepository`, do not copy the data),
+   4. no overlapping accepted booking,
+   5. create the aggregate through its constructor or factory so the domain rules run, `AddAsync`, log with `ILogger`, return success with a DTO.
+   - Keep the handler an **orchestrator**: load, call domain methods, save. Rules about the booking itself live on `Booking`. Don't call other handlers via `Send` from inside a handler.
+4. `Features/Bookings/BookingResponse.cs`: the response record (`Success`, `Message`, `BookingDto? Booking`), the `BookingDto`, and a `ToDto()` mapping extension, exactly like `Features/Pets/PetResponse.cs`. **Never return the entity**: it carries navigation properties and sensitive fields (for example `PasswordHash` on `User`).
+- A query (`GetMyBookings`) is the same minus the validator: the handler reads and returns DTOs. Never modify state in a query.
+- Failure convention: return `Success=false` with a message. **Use the words "not found" only for genuine 404 cases**, because `ApiControllerBase.Respond()` maps that phrase to 404 and everything else to 400.
+
+#### Step 5: API (`PetSitting.Api/`)
+1. `Contracts/Requests.cs`: add `BookingRequest(int SitterId, int PetId, DateTime StartUtc, DateTime EndUtc)`. Property names are the JSON contract with the frontend (camelCase on the wire).
+2. `Controllers/BookingsController.cs`: `[ApiController]`, `[Route("api/[controller]")]`, **`[Authorize]`** (add a role restriction if only Owners may call), inherit `ApiControllerBase`, inject `IMediator`. The action only builds the command with `UserId`, sends it, and maps the result: `CreatedAtAction` for creates, `Respond(...)` for lookups and updates. No logic here.
+3. Try it before writing any frontend: add the call to `backend/backend.http` (or use OpenAPI in Development) and test the success case, each failure case, no token (401), and someone else's data.
+   - No CORS or DI changes are needed for a new route. If the endpoint accepts files, set explicit size limits and validate the content type like `BlobService` does.
+
+#### Step 6: Frontend (`frontend/src/app/`)
+1. `models/user.model.ts` (or a new model file when the feature grows): types mirroring `BookingDto` and the request/result shapes. Keep names identical to the JSON (camelCase).
+2. `services/booking.service.ts`: follow `pet.service.ts` (URL from `environment.apiRootUrl`, `Authorization` header, `Observable` return). If you add more services, consider one HTTP interceptor for the header (see issue 7 in 1.9) instead of repeating it.
+3. UI: a component with a reactive form (`Validators` mirroring the server rules for fast feedback, but **the server remains the authority**) and `signal`s for `isSaving`, `errorMessage` and the result. Show the server's `message` on failure. Register the route in `app.routes.ts` under the authenticated layout, and add a navbar link if needed.
+4. The frontend guide's target structure is `features/bookings/` with a facade that owns the signals and HTTP calls, and components that only talk to the facade. Existing code is flatter; **new features should follow the guide**, and existing screens can stay until you refactor them deliberately.
+5. Handle loading, empty, error and success states, plus 401 (token expired, send to login) explicitly; never leave a spinner running on failure.
+
+#### Step 7: Verify and ship
+- Run `dotnet build backend/backend.slnx` and, in `frontend/`, `npm run build` (the same two things CI runs). **CI does not run tests**, so your manual verification is the safety net.
+- Add tests for domain rules (`Booking.Cancel()`, `DateRange`) when you build them. There is no test project yet, so create one (for example `PetSitting.Domain.Tests` with xUnit) when the first real rules appear. Handlers are easy to test with fake repositories.
+- Do a manual end-to-end pass in the browser: happy path, each failure message, a page refresh, and a second user trying to reach the first user's data.
+- New configuration (keys, URLs) goes to Key Vault or App Service settings, **never** into `appsettings.json` or the environment files; add a placeholder to `.env.example` for local Docker.
+- Commit in small slices (domain, persistence, slice, API, frontend). A merge to `main` builds, pushes images and **deploys straight to production**, running the migration on startup.
+- Update this document (API table, data model, functional section) and the `AGENTS.md` files if you changed an architectural rule.
+
+#### Quick checklist (copy into the PR description)
+- [ ] Use case and failure cases written down; command vs query decided
+- [ ] Domain rule lives on the entity or value object, not only in the handler
+- [ ] `DbSet`, relationships and **migration generated, read and tested locally**
+- [ ] Repository interface, implementation and **`AddScoped` in `Program.cs`**
+- [ ] Command/query, validator, handler, response, DTO and `ToDto()` in one folder
+- [ ] `UserId` from the JWT; **ownership and role checked**; no entities returned
+- [ ] "not found" wording only for real 404s
+- [ ] Controller is `[Authorize]` and thin; request record added
+- [ ] Tried through `backend.http`, including 401 and other-user cases
+- [ ] Frontend model, service, component, route; all states handled
+- [ ] Both builds pass; secrets and config not committed; docs updated
+
+#### Common mistakes
+| Mistake | What happens |
+|---|---|
+| Repository not registered in `Program.cs` | Runtime DI error on the first request, not at build time |
+| Taking `UserId` from the request body | Any user can act as another user |
+| Checking that the record exists but not that it belongs to the caller | Cross-user data access (the existing pet handlers show the right pattern) |
+| Reordering enum members | Existing rows silently change meaning (stored as int) |
+| Returning the EF entity | Leaks fields and can cause JSON cycles |
+| Database-dependent checks in the validator | Validators should only check input shape |
+| Editing a migration after it was deployed | Production and the migration history diverge; add a new migration instead |
+| `DateTime.Now` | Wrong across time zones; use `DateTime.UtcNow` |
+| Forgetting the frontend error state | The user sees a frozen UI on 400/401 |
+
 ### Startup behaviour (`Program.cs`)
 
 1. Registers controllers, OpenAPI, CORS (default policy), `AppDbContext` (connection string `ConnectionStrings:DefaultConnection`), repositories, services, MediatR (+ `ValidationBehavior`), validators.
