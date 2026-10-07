@@ -15,7 +15,6 @@ using PetSitting.Application.Common.Behaviors;
 var builder = WebApplication.CreateBuilder(args);
 
 Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine($"Connection string: {builder.Configuration.GetConnectionString("DefaultConnection")}");
 
 // Add services to the container.
 

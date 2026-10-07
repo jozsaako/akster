@@ -8,9 +8,11 @@ backend/*.user
 backend/.vs/
 
 # Angular
-frontend/frontend/node_modules/
-frontend/frontend/dist/
+frontend/node_modules/
+frontend/dist/
 
 # Environment / secrets
 appsettings.Development.json
 *.env
+.env
+!.env.example

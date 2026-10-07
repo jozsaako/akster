@@ -1,6 +1,6 @@
 # Akster (PetPal) — Documentation
 
-> Part 1 is the technical documentation, Part 2 is a short overview of the app, and Part 3 is a lighter functional documentation.
+> Part 1 is the technical documentation (including how AI is used in the project, 1.10), Part 2 is a short overview of the app, and Part 3 is a lighter functional documentation.
 > Section 1.6 (Azure) is based on the real `az resource list` output; a short list of unconfirmed details is at its end.
 
 ---
@@ -163,7 +163,7 @@ Migrations (chronological): InitialCreate → AddUserTable → AddRefreshTokenTa
 |---|---|---|
 | Docker (multi-stage) | Identical build everywhere, small runtime images | Backend: `dotnet/sdk:10.0` build → `aspnet:10.0` runtime (publishes `PetSitting.Api` only, listens on 8080). Frontend: `node:20-alpine` `nx build` → `nginx:alpine` serving `dist/frontend/browser` |
 | nginx config | SPA needs fallback routing + cache control | `try_files … /index.html`; static assets cached 1 year (`immutable`); `index.html` `no-cache` |
-| docker-compose | One-command local stack | SQL Server 2022 (healthchecked) + API on `:5000` + frontend on `:4200` |
+| docker-compose | One-command local stack | SQL Server 2022 (healthchecked) + API on `:5072` + frontend (nginx) on `:4200`; secrets come from a git-ignored `.env` (template: `.env.example` with `MSSQL_SA_PASSWORD`, `JWT_KEY`) |
 | GitHub Actions (`deploy.yaml`) | CI/CD next to the code | 3 jobs, see below |
 
 **Pipeline** (`push`/`pull_request` on `main`):
@@ -228,7 +228,7 @@ Not in the resource list but used: a **service principal** whose JSON is in the 
 
 | Key | Where | Meaning |
 |---|---|---|
-| `ConnectionStrings:DefaultConnection` | env / Key Vault | SQL Server connection (compose: `ConnectionStrings__Default`, see 1.9) |
+| `ConnectionStrings:DefaultConnection` | env / Key Vault | SQL Server connection (compose sets `ConnectionStrings__DefaultConnection`) |
 | `Jwt:Issuer` / `Audience` | appsettings | `akster` / `akster_users` |
 | `Jwt:Key` | Key Vault `Jwt--Key` | HMAC-SHA256 signing key |
 | `Jwt:ExpiresMinutes`, `Jwt:RefreshTokenExpiresDays` | appsettings | 60 / 7 |
@@ -239,8 +239,8 @@ Not in the resource list but used: a **service principal** whose JSON is in the 
 ## 1.8 Running locally
 
 ```bash
-# Database + API + frontend (see caveat on the frontend build path in 1.9)
-docker compose up --build
+# Copy .env.example to .env and set MSSQL_SA_PASSWORD and JWT_KEY first
+docker compose up --build   # Database + API + frontend
 
 # Or separately
 cd backend/PetSitting.Api && dotnet run          # http://localhost:5072
@@ -250,21 +250,71 @@ Local backend runs need a SQL Server connection string and (for uploads) `AzureB
 
 ## 1.9 Known issues and risks found while documenting
 
-Ordered by importance. None were changed.
+Re-checked against the working tree on 2026-10-07. Items 4 and 5 are fixed (changes are still uncommitted); everything else still applies.
 
-1. **Password hashing is unsalted SHA-256** (`RegisterCommandHandler`, `LoginCommandHandler`). Should become PBKDF2/Argon2/bcrypt (e.g. ASP.NET `PasswordHasher`). Existing hashes need a migration path.
-2. **CORS is `AllowAnyOrigin`**; restrict to the frontend origin(s).
-3. **A Google Maps API key is committed** in `frontend/src/environments/*.ts` (and in git history). Restrict it by HTTP referrer and quota in Google Cloud, and consider rotating it.
-4. **`docker-compose.yml` is stale:** the frontend builds from `./frontend/frontend` (path does not exist, should be `./frontend`), serves on 80 but maps nothing matching `4200`, and the API gets `ConnectionStrings__Default` while the code reads `ConnectionStrings:DefaultConnection`. It also contains a hard-coded SA password (fine for local only).
-5. **`Program.cs` logs the connection string** at startup, which would leak DB credentials into App Service logs.
+1. **Password hashing is unsalted SHA-256** (`RegisterCommandHandler`, `LoginCommandHandler`). Should become PBKDF2/Argon2/bcrypt (e.g. ASP.NET `PasswordHasher`). Existing hashes need a migration path. *Still SHA-256.*
+2. **CORS is `AllowAnyOrigin`**; restrict to the frontend origin(s). *Still `AllowAnyOrigin`.*
+3. **A Google Maps API key is committed** in `frontend/src/environments/*.ts` (and in git history). Restrict it by HTTP referrer and quota in Google Cloud, and consider rotating it. *Still present in both environment files.*
+4. ~~`docker-compose.yml` is stale~~ **Fixed (uncommitted):** frontend now builds from `./frontend` on `4200:80`, API on `5072:8080` with `ConnectionStrings__DefaultConnection` and `Jwt__Key`, and the SA password moved to `.env` (`.env.example` added, `.env` git-ignored, `.gitignore` paths corrected). Remaining: the old password `Strong!Passw0rd123` stays in git history (local-only, low risk), and compose does not pass `AzureBlobStorage__ConnectionString`, so uploads fail locally unless you add it.
+5. ~~`Program.cs` logs the connection string~~ **Fixed (uncommitted)** in both `PetSitting.Api/Program.cs` and the legacy `backend/Program.cs`.
 6. **Public blob container** (`PublicAccessType.Blob`): every uploaded image is world-readable by URL. Acceptable for avatars; reconsider for anything sensitive.
 7. **Tokens in `localStorage`** (XSS exposure) and **no refresh-on-401 / HTTP interceptor**: after 60 minutes API calls fail until the user logs in again.
 8. **Email is not verified** (`IsEmailConfirmed` is never set to true); **any user can switch to Sitter** freely via `change-role` (by design today, but a trust issue once sitters are searchable).
 9. **No tests run in CI**, and the backend has no test project.
-10. **Legacy duplicate backend code** in `backend/` root (`Identity/`, `Pets/`, `Availability/`, `Controllers/`, `Models/`, `Program.cs`, `DbContext.cs`, `backend.csproj` with older package versions such as MediatR 14 and FluentValidation 12) is not built by the Dockerfile or `backend.slnx` and can be deleted after confirming nothing references it. `Message` entity / `Messages` table is also unused.
+10. **Legacy duplicate backend code** in `backend/` root (`Identity/`, `Pets/`, `Availability/`, `Controllers/`, `Models/`, `Program.cs`, `DbContext.cs`, `backend.csproj` with older package versions such as MediatR 14 and FluentValidation 12) is not built by the Dockerfile or `backend.slnx` and can be deleted after confirming nothing references it. `Message` entity / `Messages` table is also unused. *Still present (`Identity/`, `Pets/`, `Availability/`, `Controllers/`, `Models/`, `Data/`, root `Program.cs`, `DbContext.cs`, `backend.csproj`).*
 11. **SSR is configured but not used in production** (nginx serves static files, and `RenderMode.Prerender` for `**` conflicts with auth-guarded, `localStorage`-dependent pages). Either drop SSR packages or run the Node server image.
 12. **Frontend does not yet follow its own guide** (no `features/` folders or facades; the profile component is a ~600-line component that does HTTP via services directly).
-13. `ngx-scanner-qrcode` is unused; `.github/copilot-instructions.md` points to `/docs/architecture/*.md` files that do not exist (the guides live in `backend/AGENTS.md` and `frontend/AGENTS.md`).
+13. `ngx-scanner-qrcode` is unused; `.github/copilot-instructions.md` points to `/docs/architecture/*.md` files that do not exist (the guides live in `backend/AGENTS.md` and `frontend/AGENTS.md`). *Still true; `.vs/` (115 files) and `frontend/.claude/settings.local.json` are still tracked.*
+
+## 1.10 AI-assisted development
+
+AI is a development tool here, not a product feature: nothing in the running app calls an AI service. The setup lives in the repository so every session starts with the same rules.
+
+### Tools
+
+| Tool | How it is used |
+|---|---|
+| **Claude (Claude Pro subscription), via Claude Code** | Main coding assistant: exploring the code, implementing features, refactoring, reviewing, generating documentation like this file. Runs in the Claude desktop app (Code tab) and/or the terminal against the local repo. |
+| **GitHub Copilot** | Secondary assistant, used from Visual Studio / VS Code. Evidence: `.github/copilot-instructions.md`, `frontend/.github/copilot-instructions.md`, and Copilot snapshot files under `.vs/CopilotSnapshots/`. |
+| **Angular CLI MCP server** | `frontend/.vscode/mcp.json` registers `npx @angular/cli mcp`, giving the assistant Angular-aware tools and current docs inside VS Code. |
+
+### How the rules reach the assistant
+
+1. **`CLAUDE.md` (root)** tells the assistant to read `backend/CLAUDE.md` and `frontend/CLAUDE.md` before making architectural decisions or generating code, and calls them authoritative.
+2. **`backend/CLAUDE.md` and `frontend/CLAUDE.md`** each contain only `@AGENTS.md`, an import of the real guide. Keeping the content in `AGENTS.md` means the same file is understood by other agents too, not just Claude.
+3. **`backend/AGENTS.md` and `frontend/AGENTS.md`** are the architecture decision records (vertical slices, CQRS/MediatR, aggregate-only repositories, `Result<T>`; Angular standalone components, Signals, facades, no NgRx/Nx apps). They end with explicit "Rules for AI Assistants" and a table of rejected alternatives, so the assistant does not re-propose them.
+4. **Copilot instruction files** carry the equivalent Angular/TypeScript rules for Copilot (standalone by default, Signals, accessibility). The root `.github/copilot-instructions.md` still points at `/docs/architecture/*.md`, which do not exist (the guides are the `AGENTS.md` files).
+
+### Skills
+
+`.claude/skills/` (mirrored in `.agents/skills/`) holds **25 engineering-workflow skills** installed from the open-source `addyosmani/agent-skills` repository. `skills-lock.json` pins each one to its source path and a content hash so versions are reproducible. A skill is a `SKILL.md` that the assistant loads on demand when the task matches its description, so the process is applied consistently instead of improvised each time.
+
+| Phase | Skills |
+|---|---|
+| Define | `idea-refine`, `interview-me`, `spec-driven-development`, `planning-and-task-breakdown` |
+| Build | `incremental-implementation`, `test-driven-development`, `api-and-interface-design`, `frontend-ui-engineering`, `source-driven-development`, `context-engineering` |
+| Verify | `debugging-and-error-recovery`, `browser-testing-with-devtools`, `doubt-driven-development`, `constraint-driven-development` |
+| Review | `code-review-and-quality`, `code-simplification`, `security-and-hardening`, `performance-optimization` |
+| Ship | `git-workflow-and-versioning`, `ci-cd-and-automation`, `shipping-and-launch`, `observability-and-instrumentation`, `deprecation-and-migration`, `documentation-and-adrs` |
+| Meta | `using-agent-skills` (how to pick the right skill) |
+
+### Plugins and agents
+
+- **Plugin:** `.claude/settings.json` enables the `ponytail` plugin (from the git marketplace `DietrichGebert/ponytail`). It biases the assistant toward the smallest working solution (no speculative abstractions, reuse before writing, one runnable check for non-trivial logic) and adds review/audit commands for over-engineering. It matches the "solo developer, low ceremony" stance of the architecture guides.
+- **Agents:** no custom agents are defined in the repo (no `.claude/agents/`). Claude Code's built-in subagents are available but not configured here. The `.agents/` folder only mirrors the skills for other agent tools.
+- **Permissions:** `frontend/.claude/settings.local.json` is a local allowlist of pre-approved commands (reading the backend, `dotnet build`, directory listings) so routine read-only actions do not prompt.
+
+### Working agreement (suggested)
+
+- The `AGENTS.md` files are the single source of truth; change architecture there first, then code.
+- The assistant proposes, the developer reviews every diff and runs the build/tests; CI only builds today (no tests), so review matters.
+- Never put secrets or real credentials in prompts, `CLAUDE.md`/`AGENTS.md` or skills. The app's secrets live in Key Vault and App Service settings.
+
+### Housekeeping found
+
+- `.vs/CopilotSnapshots/` (115 files of IDE-generated snapshots) is committed. Add `.vs/` to `.gitignore` and remove it from the index.
+- `.claude/skills` and `.agents/skills` are duplicates; keep one if your tools allow, or accept the mirror as the cost of supporting several agents.
+- `frontend/.claude/settings.local.json` is a *local* settings file and normally should not be committed.
 
 ---
 
