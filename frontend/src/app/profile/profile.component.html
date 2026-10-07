@@ -1,4 +1,6 @@
 <div class="profile-shell">
+
+  <!-- Profile Card -->
   <section class="profile-card">
 
     <button
@@ -19,7 +21,7 @@
     </button>
 
     <input
-      #fileInput
+      id="avatarFileInput"
       type="file"
       accept="image/jpeg,image/png,image/gif,image/webp"
       style="display:none"
@@ -71,6 +73,28 @@
         />
       </div>
 
+      <div class="field field--address">
+        <label class="field__label" for="address">Address</label>
+        <input
+          id="address"
+          #addressInput
+          class="field__input"
+          type="text"
+          formControlName="address"
+          placeholder="Start typing your address…"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="address-map-wrapper">
+        <div #mapContainer class="address-map"></div>
+        @if (!mapReady()) {
+          <div class="address-map-placeholder">
+            <span>Map will appear here after address is selected</span>
+          </div>
+        }
+      </div>
+
       @if (errorMessage()) {
         <p class="message message--error">{{ errorMessage() }}</p>
       }
@@ -87,4 +111,339 @@
       </button>
     </form>
   </section>
+
+  <!-- Pets Section (Owner only) -->
+  @if (userService.currentUser()?.role === 'Owner') {
+  <section class="pets-section">
+    <div class="pets-header">
+      <h2 class="pets-title">My Pets</h2>
+      @if (!showAddPetForm()) {
+        <button class="add-pet-btn" type="button" (click)="openAddPetForm()">+ Add pet</button>
+      }
+    </div>
+
+    @if (petError()) {
+      <p class="message message--error">{{ petError() }}</p>
+    }
+    @if (petSuccess()) {
+      <p class="message message--success">{{ petSuccess() }}</p>
+    }
+
+    <!-- Add Pet Form -->
+    @if (showAddPetForm()) {
+      <div class="pet-form-card">
+        <h3 class="pet-form-card__title">New pet</h3>
+        <form [formGroup]="petFormGroup" (ngSubmit)="savePet()">
+          <div class="pet-form-grid">
+            <div class="field">
+              <label class="field__label" for="petName">Name</label>
+              <input
+                id="petName"
+                class="field__input"
+                [class.field__input--invalid]="petFormGroup.controls.name.invalid && petFormGroup.controls.name.touched"
+                type="text"
+                formControlName="name"
+                placeholder="e.g. Whiskers"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="petAge">Age (years)</label>
+              <input
+                id="petAge"
+                class="field__input"
+                [class.field__input--invalid]="petFormGroup.controls.age.invalid && petFormGroup.controls.age.touched"
+                type="number"
+                formControlName="age"
+                min="0"
+                placeholder="0"
+              />
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="petType">Type</label>
+              <select id="petType" class="field__input field__select" formControlName="type">
+                <option value="">Select type</option>
+                <option value="Cat">Cat</option>
+                <option value="Dog">Dog</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="petGender">Gender</label>
+              <select id="petGender" class="field__input field__select" formControlName="gender">
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field field--full">
+            <label class="field__label" for="petSpecialNeeds">Special needs</label>
+            <textarea
+              id="petSpecialNeeds"
+              class="field__input field__textarea"
+              formControlName="specialNeeds"
+              rows="3"
+              placeholder="Any dietary restrictions, medical conditions, or other notes…"
+            ></textarea>
+          </div>
+
+          <div class="pet-form-actions">
+            <button class="save-btn" type="submit" [disabled]="petFormGroup.invalid || isSavingPet()">
+              {{ isSavingPet() ? 'Saving…' : 'Add pet' }}
+            </button>
+            <button class="cancel-btn" type="button" (click)="cancelPetForm()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    }
+
+    <!-- Pet Cards -->
+    @if (isPetsLoading()) {
+      <p class="pets-loading">Loading pets…</p>
+    } @else if (pets().length === 0 && !showAddPetForm()) {
+      <p class="pets-empty">No pets yet. Add your first one!</p>
+    } @else {
+      <div class="pets-list">
+        @for (pet of pets(); track pet.id) {
+          <div class="pet-card">
+
+            @if (isEditing(pet.id)) {
+              <!-- Edit Form -->
+              <div class="pet-form-card pet-form-card--inline">
+                <h3 class="pet-form-card__title">Edit {{ pet.name }}</h3>
+                <form [formGroup]="petFormGroup" (ngSubmit)="savePet()">
+                  <div class="pet-form-grid">
+                    <div class="field">
+                      <label class="field__label">Name</label>
+                      <input
+                        class="field__input"
+                        [class.field__input--invalid]="petFormGroup.controls.name.invalid && petFormGroup.controls.name.touched"
+                        type="text"
+                        formControlName="name"
+                      />
+                    </div>
+
+                    <div class="field">
+                      <label class="field__label">Age (years)</label>
+                      <input
+                        class="field__input"
+                        [class.field__input--invalid]="petFormGroup.controls.age.invalid && petFormGroup.controls.age.touched"
+                        type="number"
+                        formControlName="age"
+                        min="0"
+                      />
+                    </div>
+
+                    <div class="field">
+                      <label class="field__label">Type</label>
+                      <select class="field__input field__select" formControlName="type">
+                        <option value="">Select type</option>
+                        <option value="Cat">Cat</option>
+                        <option value="Dog">Dog</option>
+                      </select>
+                    </div>
+
+                    <div class="field">
+                      <label class="field__label">Gender</label>
+                      <select class="field__input field__select" formControlName="gender">
+                        <option value="">Select gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="field field--full">
+                    <label class="field__label">Special needs</label>
+                    <textarea
+                      class="field__input field__textarea"
+                      formControlName="specialNeeds"
+                      rows="3"
+                      placeholder="Any dietary restrictions, medical conditions, or other notes…"
+                    ></textarea>
+                  </div>
+
+                  <div class="pet-form-actions">
+                    <button class="save-btn" type="submit" [disabled]="petFormGroup.invalid || isSavingPet()">
+                      {{ isSavingPet() ? 'Saving…' : 'Save changes' }}
+                    </button>
+                    <button class="cancel-btn" type="button" (click)="cancelPetForm()">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            } @else {
+              <!-- View Mode -->
+              <div class="pet-card__header">
+                <span class="pet-card__icon">{{ petTypeIcon(pet.type) }}</span>
+                <div class="pet-card__info">
+                  <span class="pet-card__name">{{ pet.name }}</span>
+                  <span class="pet-card__meta">{{ pet.type }} · {{ pet.gender }} · {{ pet.age }} yr{{ pet.age !== 1 ? 's' : '' }}</span>
+                </div>
+                <div class="pet-card__actions">
+                  <button class="icon-btn icon-btn--edit" type="button" (click)="openEditPetForm(pet)" title="Edit pet">✏️</button>
+                  <button class="icon-btn icon-btn--delete" type="button" (click)="deletePet(pet.id)" title="Delete pet">🗑️</button>
+                </div>
+              </div>
+
+              @if (pet.specialNeeds) {
+                <p class="pet-card__special-needs">
+                  <strong>Special needs:</strong> {{ pet.specialNeeds }}
+                </p>
+              }
+
+              <!-- Pictures -->
+              <div class="pet-pictures">
+                @for (picture of pet.pictures; track picture.id) {
+                  <div class="pet-picture">
+                    <img class="pet-picture__img" [src]="picture.url" [alt]="pet.name" />
+                    <button
+                      class="pet-picture__delete"
+                      type="button"
+                      (click)="deletePetPicture(pet.id, picture.id)"
+                      title="Remove picture"
+                    >×</button>
+                  </div>
+                }
+
+                <button
+                  class="pet-picture__add"
+                  type="button"
+                  [disabled]="uploadingPictureForPetId() === pet.id"
+                  (click)="triggerPetPictureInput(pet.id)"
+                  title="Add picture"
+                >
+                  @if (uploadingPictureForPetId() === pet.id) {
+                    <span>…</span>
+                  } @else {
+                    <span>+</span>
+                  }
+                </button>
+
+                <input
+                  [id]="'petFileInput-' + pet.id"
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  style="display:none"
+                  (change)="onPetPictureSelected($event, pet.id)"
+                />
+              </div>
+            }
+
+          </div>
+        }
+      </div>
+    }
+  </section>
+  } <!-- end @if Owner -->
+
+  <!-- Availability Section (Sitter only) -->
+  @if (userService.currentUser()?.role === 'Sitter') {
+  <section class="availability-section">
+    <div class="availability-header">
+      <h2 class="availability-title">My Availability</h2>
+    </div>
+
+    @if (availabilityError()) {
+      <p class="message message--error">{{ availabilityError() }}</p>
+    }
+    @if (availabilitySuccess()) {
+      <p class="message message--success">{{ availabilitySuccess() }}</p>
+    }
+
+    @if (isAvailabilityLoading()) {
+      <p class="availability-loading">Loading…</p>
+    } @else {
+      <div class="availability-card">
+
+        <!-- Weekly Schedule -->
+        <div class="avail-block">
+          <h3 class="avail-block__title">Weekly Schedule</h3>
+          <p class="avail-block__hint">Select the time slots when you are available to sit.</p>
+          <div class="schedule-grid">
+            <div class="schedule-corner"></div>
+            @for (day of DAYS; track day) {
+              <div class="schedule-day-header">{{ day }}</div>
+            }
+            @for (slot of SLOTS; track slot) {
+              <div class="schedule-slot-label">{{ slot }}</div>
+              @for (day of DAYS; track day) {
+                <button
+                  class="schedule-cell"
+                  type="button"
+                  [class.schedule-cell--on]="isSlotSelected(day, slot)"
+                  (click)="toggleSlot(day, slot)"
+                ></button>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- Services -->
+        <div class="avail-block">
+          <h3 class="avail-block__title">Services Offered</h3>
+          <div class="check-group">
+            @for (service of SERVICES; track service.value) {
+              <label class="check-chip" [class.check-chip--active]="isServiceSelected(service.value)">
+                <input type="checkbox" [checked]="isServiceSelected(service.value)" (change)="toggleService(service.value)" />
+                {{ service.label }}
+              </label>
+            }
+          </div>
+        </div>
+
+        <!-- Accepted Pet Types -->
+        <div class="avail-block">
+          <h3 class="avail-block__title">Accepted Pet Types</h3>
+          <div class="check-group">
+            @for (type of PET_TYPES; track type) {
+              <label class="check-chip" [class.check-chip--active]="isPetTypeSelected(type)">
+                <input type="checkbox" [checked]="isPetTypeSelected(type)" (change)="togglePetType(type)" />
+                {{ type }}
+              </label>
+            }
+          </div>
+        </div>
+
+        <!-- Max Pets -->
+        <div class="avail-block avail-block--inline">
+          <h3 class="avail-block__title">Max pets at a time</h3>
+          <input
+            class="field__input avail-max-pets"
+            type="number"
+            min="1"
+            max="10"
+            [value]="maxPets()"
+            (input)="onMaxPetsChange($event)"
+          />
+        </div>
+
+        <!-- Bio -->
+        <div class="avail-block">
+          <h3 class="avail-block__title">About me</h3>
+          <textarea
+            class="field__input field__textarea"
+            rows="4"
+            placeholder="Describe your experience as a pet sitter…"
+            [value]="bio()"
+            (input)="onBioChange($event)"
+          ></textarea>
+        </div>
+
+        <button
+          class="save-btn"
+          type="button"
+          [disabled]="isSavingAvailability()"
+          (click)="saveAvailability()"
+        >
+          {{ isSavingAvailability() ? 'Saving…' : 'Save availability' }}
+        </button>
+
+      </div>
+    }
+  </section>
+  } <!-- end @if Sitter -->
+
 </div>

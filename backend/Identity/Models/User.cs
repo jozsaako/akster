@@ -1,3 +1,5 @@
+using backend.Pets.Models;
+
 namespace backend.Identity.Models
 {
     public class User
@@ -12,5 +14,7 @@ namespace backend.Identity.Models
         public bool IsEmailConfirmed { get; set; }
         public UserRole Role { get; set; } = UserRole.Owner;
         public string? ProfilePictureUrl { get; set; }
+        public string? Address { get; set; }
+        public ICollection<Pet> Pets { get; set; } = new List<Pet>();
     }
 }

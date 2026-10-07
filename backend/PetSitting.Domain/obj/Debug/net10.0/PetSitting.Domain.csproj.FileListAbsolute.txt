@@ -1,0 +1,12 @@
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.GeneratedMSBuildEditorConfig.editorconfig
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.AssemblyInfoInputs.cache
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.AssemblyInfo.cs
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.csproj.CoreCompileInputs.cache
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.sourcelink.json
+E:\dev\akster\backend\PetSitting.Domain\bin\Debug\net10.0\PetSitting.Domain.deps.json
+E:\dev\akster\backend\PetSitting.Domain\bin\Debug\net10.0\PetSitting.Domain.dll
+E:\dev\akster\backend\PetSitting.Domain\bin\Debug\net10.0\PetSitting.Domain.pdb
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.dll
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\refint\PetSitting.Domain.dll
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\PetSitting.Domain.pdb
+E:\dev\akster\backend\PetSitting.Domain\obj\Debug\net10.0\ref\PetSitting.Domain.dll

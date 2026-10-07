@@ -5,6 +5,7 @@ export interface User {
   lastName: string;
   role: UserRole;
   profilePictureUrl?: string;
+  address?: string;
 }
 
 export interface LoginCredentials {
@@ -27,6 +28,7 @@ export interface UpdateProfileRequest {
   firstName: string;
   lastName: string;
   email: string;
+  address?: string;
 }
 
 export interface AuthResult {
@@ -40,4 +42,74 @@ export interface AuthResult {
 export enum UserRole {
     Owner = 'Owner',
     Sitter = 'Sitter',
+}
+
+export type PetType = 'Cat' | 'Dog';
+export type PetGender = 'Male' | 'Female';
+
+export interface PetPicture {
+  id: number;
+  url: string;
+  uploadedAt: string;
+}
+
+export interface Pet {
+  id: number;
+  userId: number;
+  name: string;
+  age: number;
+  gender: PetGender;
+  type: PetType;
+  specialNeeds?: string;
+  createdAt: string;
+  updatedAt: string;
+  pictures: PetPicture[];
+}
+
+export interface CreatePetRequest {
+  name: string;
+  age: number;
+  gender: PetGender;
+  type: PetType;
+  specialNeeds?: string;
+}
+
+export interface UpdatePetRequest {
+  name: string;
+  age: number;
+  gender: PetGender;
+  type: PetType;
+  specialNeeds?: string;
+}
+
+export interface PetResult {
+  success: boolean;
+  message?: string;
+  pet?: Pet;
+  pets?: Pet[];
+}
+
+export interface SitterAvailability {
+  id: number;
+  userId: number;
+  schedule: Record<string, string[]>;
+  services: string[];
+  acceptedPetTypes: string[];
+  maxPets: number;
+  bio: string | null;
+  updatedAt: string;
+}
+
+export interface UpdateAvailabilityRequest {
+  schedule: Record<string, string[]>;
+  services: string[];
+  acceptedPetTypes: string[];
+  maxPets: number;
+  bio?: string;
+}
+
+export interface AvailabilityResult {
+  success: boolean;
+  message?: string;
+  availability?: SitterAvailability;
 }

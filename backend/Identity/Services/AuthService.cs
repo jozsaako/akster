@@ -105,7 +105,8 @@ namespace backend.Identity.Services
                         FirstName = user.FirstName,
                         LastName = user.LastName,
                         Role = user.Role.ToString(),
-                        ProfilePictureUrl = user.ProfilePictureUrl
+                        ProfilePictureUrl = user.ProfilePictureUrl,
+                    Address = user.Address
                     },
                     Token = GenerateJwtToken(user),
                     RefreshToken = refreshToken
@@ -151,7 +152,8 @@ namespace backend.Identity.Services
                         FirstName = user.FirstName,
                         LastName = user.LastName,
                         Role = user.Role.ToString(),
-                        ProfilePictureUrl = user.ProfilePictureUrl
+                        ProfilePictureUrl = user.ProfilePictureUrl,
+                    Address = user.Address
                     },
                     Token = GenerateJwtToken(user),
                     RefreshToken = await CreateAndSaveRefreshTokenAsync(user.Id)
@@ -381,6 +383,7 @@ namespace backend.Identity.Services
                 user.FirstName = request.FirstName.Trim();
                 user.LastName = request.LastName.Trim();
                 user.Email = request.Email.Trim();
+                user.Address = request.Address?.Trim();
                 user.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
@@ -395,7 +398,8 @@ namespace backend.Identity.Services
                         FirstName = user.FirstName,
                         LastName = user.LastName,
                         Role = user.Role.ToString(),
-                        ProfilePictureUrl = user.ProfilePictureUrl
+                        ProfilePictureUrl = user.ProfilePictureUrl,
+                    Address = user.Address
                     },
                     Token = GenerateJwtToken(user)
                 };
@@ -439,7 +443,8 @@ namespace backend.Identity.Services
                         FirstName = user.FirstName,
                         LastName = user.LastName,
                         Role = user.Role.ToString(),
-                        ProfilePictureUrl = user.ProfilePictureUrl
+                        ProfilePictureUrl = user.ProfilePictureUrl,
+                    Address = user.Address
                     },
                     Token = GenerateJwtToken(user)
                 };

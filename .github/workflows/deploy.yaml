@@ -27,8 +27,8 @@ jobs:
 
       - name: Restore & Build backend
         run: |
-          dotnet restore ./backend
-          dotnet build ./backend --no-restore --configuration Release
+          dotnet restore ./backend/backend.slnx
+          dotnet build ./backend/backend.slnx --no-restore --configuration Release
 
       # ── Frontend (Angular) ──
       - name: Setup Node.js

@@ -6,6 +6,7 @@ namespace backend.Identity.Services
     public interface IBlobService
     {
         Task<string> UploadAvatarAsync(int userId, IFormFile file);
+        Task<string> UploadPetPictureAsync(int userId, int petId, IFormFile file);
     }
 
     public class BlobService : IBlobService
@@ -28,7 +29,7 @@ namespace backend.Identity.Services
             _blobServiceClient = new BlobServiceClient(connectionString);
         }
 
-        public async Task<string> UploadAvatarAsync(int userId, IFormFile file)
+        private async Task<string> UploadImageAsync(string blobPath, IFormFile file)
         {
             if (file.Length == 0)
                 throw new ArgumentException("File is empty.");
@@ -40,14 +41,26 @@ namespace backend.Identity.Services
             var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
             await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
 
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var blobName = $"avatars/{userId}/{Guid.NewGuid()}{extension}";
-            var blobClient = containerClient.GetBlobClient(blobName);
+            var blobClient = containerClient.GetBlobClient(blobPath);
 
             using var stream = file.OpenReadStream();
             await blobClient.UploadAsync(stream, new BlobHttpHeaders { ContentType = file.ContentType });
 
             return blobClient.Uri.ToString();
+        }
+
+        public async Task<string> UploadAvatarAsync(int userId, IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var blobPath = $"avatars/{userId}/{Guid.NewGuid()}{extension}";
+            return await UploadImageAsync(blobPath, file);
+        }
+
+        public async Task<string> UploadPetPictureAsync(int userId, int petId, IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var blobPath = $"pets/{userId}/{petId}/{Guid.NewGuid()}{extension}";
+            return await UploadImageAsync(blobPath, file);
         }
     }
 }

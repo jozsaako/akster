@@ -75,7 +75,7 @@ export class UserService {
   }
 
   logout(): Observable<AuthResult> {
-    return this.http.post<AuthResult>(UserService.LOGOUT_URL, {});
+    return this.http.post<AuthResult>(UserService.LOGOUT_URL, { refreshToken: this.tokenService.getRefreshToken() });
   }
 
   setUser(user: User): void {

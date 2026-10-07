@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"e:/dev/akster/backend\" -type d | sort)",
+      "Read(//e/dev/akster/backend/**)",
+      "Bash(dotnet build *)",
+      "Bash(Get-ChildItem -Path \"e:\\\\dev\\\\akster\\\\backend\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"e:\\\\dev\\\\akster\\\\frontend\" -Recurse -Directory -Depth 2 | Select-Object -ExpandProperty FullName | Sort-Object | Where-Object { -not \\($_ -match '\\(node_modules|\\\\.next|\\\\.git\\)'\\) })"
+    ]
+  }
+}

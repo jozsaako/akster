@@ -35,6 +35,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Register Identity services
 builder.Services.AddScoped<IBlobService, BlobService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<backend.Pets.Services.IPetService, backend.Pets.Services.PetService>();
+builder.Services.AddScoped<backend.Availability.Services.IAvailabilityService, backend.Availability.Services.AvailabilityService>();
 
 // Configure JWT authentication
 // Attempt to load Jwt:Key from Key Vault or create it if missing

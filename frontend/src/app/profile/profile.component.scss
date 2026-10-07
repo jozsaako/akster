@@ -3,10 +3,14 @@
 }
 
 .profile-shell {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 3rem 2rem;
+  gap: 2rem;
 }
+
+// ── Profile Card ──────────────────────────────────────────
 
 .profile-card {
   width: min(100%, 36rem);
@@ -104,10 +108,16 @@
   gap: 1rem;
 }
 
+// ── Shared field ──────────────────────────────────────────
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+
+  &--full {
+    grid-column: 1 / -1;
+  }
 
   &__label {
     font-size: 0.78rem;
@@ -128,6 +138,7 @@
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
     box-sizing: border-box;
+    font-family: inherit;
 
     &:focus {
       border-color: #6366f1;
@@ -143,6 +154,61 @@
         box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
       }
     }
+  }
+
+  &__select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    padding-right: 2.5rem;
+    cursor: pointer;
+  }
+
+  &__textarea {
+    resize: vertical;
+    min-height: 5rem;
+    line-height: 1.5;
+  }
+}
+
+// ── Address + Map ─────────────────────────────────────────
+
+.field--address {
+  width: 100%;
+}
+
+.address-map-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.address-map {
+  width: 100%;
+  height: 260px;
+}
+
+.address-map-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 1rem;
+  pointer-events: none;
+
+  span {
+    max-width: 220px;
+    line-height: 1.5;
   }
 }
 
@@ -184,5 +250,446 @@
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+}
+
+.cancel-btn {
+  margin-top: 0.25rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+}
+
+// ── Pets Section ──────────────────────────────────────────
+
+.pets-section {
+  width: min(100%, 56rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pets-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.add-pet-btn {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 999px;
+  background: #4338ca;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #3730a3;
+  }
+}
+
+.pets-loading,
+.pets-empty {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+// ── Pet Form Card ─────────────────────────────────────────
+
+.pet-form-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  &--inline {
+    box-shadow: none;
+    border: 1.5px solid #e2e8f0;
+    padding: 1.25rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+}
+
+.pet-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pet-form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+// ── Pet Cards ─────────────────────────────────────────────
+
+.pets-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.pet-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  transition: box-shadow 0.15s;
+
+  &:hover {
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  }
+}
+
+.pet-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pet-card__icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pet-card__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.pet-card__name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pet-card__meta {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.pet-card__actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s;
+
+  &--edit:hover {
+    background: #ede9fe;
+  }
+
+  &--delete:hover {
+    background: #fef2f2;
+  }
+}
+
+.pet-card__special-needs {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.5;
+  background: #f8fafc;
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.85rem;
+}
+
+// ── Pet Pictures ──────────────────────────────────────────
+
+.pet-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pet-picture {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__delete {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    line-height: 1;
+  }
+
+  &:hover &__delete {
+    opacity: 1;
+  }
+}
+
+// ── Availability Section ──────────────────────────────────
+
+.availability-section {
+  width: min(100%, 56rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.availability-header {
+  display: flex;
+  align-items: center;
+}
+
+.availability-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.availability-loading {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.availability-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.avail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  &--inline {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+  }
+}
+
+// Schedule grid
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 5.5rem repeat(7, 1fr);
+  gap: 0.3rem;
+
+  @media (max-width: 540px) {
+    grid-template-columns: 4rem repeat(7, 1fr);
+  }
+}
+
+.schedule-corner {
+  // empty top-left cell
+}
+
+.schedule-day-header {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.3rem 0;
+}
+
+.schedule-slot-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+}
+
+.schedule-cell {
+  height: 2rem;
+  border-radius: 0.45rem;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+
+  &--on {
+    background: #6366f1;
+    border-color: #6366f1;
+  }
+
+  &:hover:not(.schedule-cell--on) {
+    background: #ede9fe;
+    border-color: #a5b4fc;
+  }
+}
+
+// Check chips
+
+.check-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.check-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  user-select: none;
+
+  input[type='checkbox'] {
+    display: none;
+  }
+
+  &--active {
+    background: #ede9fe;
+    border-color: #6366f1;
+    color: #4338ca;
+  }
+
+  &:hover:not(.check-chip--active) {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+}
+
+// Max pets input
+
+.avail-max-pets {
+  width: 5rem;
+  text-align: center;
+}
+
+// ── Pet Pictures ──────────────────────────────────────────
+
+.pet-picture__add {
+  width: 64px;
+  height: 64px;
+  border-radius: 0.65rem;
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #eef2ff;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }

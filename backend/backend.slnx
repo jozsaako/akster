@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="backend.csproj" />
+  <Project Path="PetSitting.Api/PetSitting.Api.csproj" />
+  <Project Path="PetSitting.Application/PetSitting.Application.csproj" />
+  <Project Path="PetSitting.Domain/PetSitting.Domain.csproj" />
+  <Project Path="PetSitting.Infrastructure/PetSitting.Infrastructure.csproj" />
 </Solution>
