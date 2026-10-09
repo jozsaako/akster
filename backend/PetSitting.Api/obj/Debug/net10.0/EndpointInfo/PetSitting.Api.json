@@ -22,17 +22,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginCommand"
+                "$ref": "#/components/schemas/LoginInput"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginCommand"
+                "$ref": "#/components/schemas/LoginInput"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginCommand"
+                "$ref": "#/components/schemas/LoginInput"
               }
             }
           },
@@ -54,17 +54,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterCommand"
+                "$ref": "#/components/schemas/RegisterInput"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterCommand"
+                "$ref": "#/components/schemas/RegisterInput"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterCommand"
+                "$ref": "#/components/schemas/RegisterInput"
               }
             }
           },
@@ -570,7 +570,7 @@
         "type": "string",
         "format": "binary"
       },
-      "LoginCommand": {
+      "LoginInput": {
         "required": [
           "email",
           "password"
@@ -631,7 +631,7 @@
           }
         }
       },
-      "RegisterCommand": {
+      "RegisterInput": {
         "required": [
           "email",
           "password",

@@ -25,7 +25,7 @@ namespace PetSitting.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.RefreshToken", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -53,7 +53,7 @@ namespace PetSitting.Infrastructure.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.User", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -114,9 +114,9 @@ namespace PetSitting.Infrastructure.Migrations
                     b.ToTable("Messages");
                 });
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.RefreshToken", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.RefreshToken", b =>
                 {
-                    b.HasOne("PetSitting.Domain.Identity.User", "User")
+                    b.HasOne("PetSitting.Domain.Users.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)

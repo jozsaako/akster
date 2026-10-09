@@ -25,7 +25,7 @@ namespace PetSitting.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.User", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

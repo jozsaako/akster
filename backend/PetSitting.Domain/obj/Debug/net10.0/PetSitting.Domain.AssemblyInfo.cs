@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PetSitting.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f39d55a64c470eecc6671dfe451f630dc90c1a55")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+473def05164ebf600d148214656b9a1ad1c84d05")]
 [assembly: System.Reflection.AssemblyProductAttribute("PetSitting.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PetSitting.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

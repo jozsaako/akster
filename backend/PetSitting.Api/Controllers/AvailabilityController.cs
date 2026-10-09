@@ -1,9 +1,7 @@
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PetSitting.Api.Contracts;
-using PetSitting.Application.Features.Availability.GetAvailability;
-using PetSitting.Application.Features.Availability.UpsertAvailability;
+using PetSitting.Application.Availability;
 
 namespace PetSitting.Api.Controllers;
 
@@ -12,22 +10,22 @@ namespace PetSitting.Api.Controllers;
 [Authorize]
 public class AvailabilityController : ApiControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IAvailabilityManager _availabilityManager;
 
-    public AvailabilityController(IMediator mediator)
+    public AvailabilityController(IAvailabilityManager availabilityManager)
     {
-        _mediator = mediator;
+        _availabilityManager = availabilityManager;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAvailability() =>
-        Ok(await _mediator.Send(new GetAvailabilityQuery(UserId)));
+        ToAction(await _availabilityManager.GetAsync(UserId), a => new AvailabilityResponse(true, string.Empty, a));
 
     [HttpPut]
     public async Task<IActionResult> UpsertAvailability([FromBody] AvailabilityRequest r)
     {
-        var result = await _mediator.Send(
-            new UpsertAvailabilityCommand(UserId, r.Schedule, r.Services, r.AcceptedPetTypes, r.MaxPets, r.Bio));
-        return result.Success ? Ok(result) : BadRequest(result);
+        var result = await _availabilityManager.UpsertAsync(
+            UserId, new UpsertAvailabilityInput(r.Schedule, r.Services, r.AcceptedPetTypes, r.MaxPets, r.Bio));
+        return ToAction(result, a => new AvailabilityResponse(true, "Availability saved.", a));
     }
 }

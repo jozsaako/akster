@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PetSitting.Domain.Common;
-using PetSitting.Domain.Identity;
+using PetSitting.Domain.Users;
 using PetSitting.Domain.Pets;
 using PetSitting.Domain.Availability;
 

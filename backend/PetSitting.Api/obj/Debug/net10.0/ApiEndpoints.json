@@ -24,8 +24,8 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "command",
-        "Type": "PetSitting.Application.Features.Identity.Login.LoginCommand",
+        "Name": "input",
+        "Type": "PetSitting.Application.Users.LoginInput",
         "IsRequired": true
       }
     ],
@@ -114,8 +114,8 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "command",
-        "Type": "PetSitting.Application.Features.Identity.Register.RegisterCommand",
+        "Name": "input",
+        "Type": "PetSitting.Application.Users.RegisterInput",
         "IsRequired": true
       }
     ],

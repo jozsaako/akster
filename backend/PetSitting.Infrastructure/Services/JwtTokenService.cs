@@ -4,8 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using PetSitting.Application.Abstractions;
-using PetSitting.Domain.Identity;
+using PetSitting.Application.Common;
+using PetSitting.Domain.Users;
 
 namespace PetSitting.Infrastructure.Services;
 

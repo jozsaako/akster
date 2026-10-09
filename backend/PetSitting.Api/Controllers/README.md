@@ -1,10 +1,8 @@
-namespace PetSitting.Api.Controllers;
+# Controllers
 
-/// <summary>
-/// Controllers are thin - they only:
-/// 1. Construct a Command/Query
-/// 2. Dispatch it via MediatR
-/// 3. Return the result
-/// 
-/// All business logic lives in handlers, not here.
-/// </summary>
+Controllers are thin. They only:
+1. Bind the request and require `[Authorize]`.
+2. Pass `UserId` (from the JWT) and the request to the subsystem's manager.
+3. Map the returned `Result` to an HTTP status via the shared helper in `ApiControllerBase`.
+
+No business logic, no repositories, no EF. Logic lives in managers and domain aggregates.

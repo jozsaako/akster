@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
-using PetSitting.Application.Abstractions;
+using PetSitting.Application.Common;
+using PetSitting.Domain;
 
 namespace PetSitting.Api;
 
@@ -8,11 +9,24 @@ public abstract class ApiControllerBase : ControllerBase
 {
     protected int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // 200 on success; otherwise 404 for "not found" messages and 400 for everything else.
-    protected IActionResult Respond(bool success, object response, string message)
+    // 200 with the body built from the value, or the status for the failure kind.
+    protected IActionResult ToAction<T>(Result<T> result, Func<T, object> body) =>
+        result.Match<IActionResult>(value => Ok(body(value)), Fail);
+
+    protected IActionResult ToAction(Result result, object body) =>
+        result.Match<IActionResult>(() => Ok(body), Fail);
+
+    protected IActionResult Fail(ErrorKind kind, string message)
     {
-        if (success) return Ok(response);
-        return message.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(response) : BadRequest(response);
+        var status = kind switch
+        {
+            ErrorKind.NotFound => StatusCodes.Status404NotFound,
+            ErrorKind.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorKind.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorKind.Conflict => StatusCodes.Status409Conflict,
+            _ => StatusCodes.Status400BadRequest
+        };
+        return StatusCode(status, new { success = false, message });
     }
 
     protected static FileUpload ToUpload(IFormFile file) =>

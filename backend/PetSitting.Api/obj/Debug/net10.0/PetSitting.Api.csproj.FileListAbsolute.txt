@@ -21,8 +21,6 @@ E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\Azure.Storage.Blobs.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\Azure.Storage.Common.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\FluentValidation.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\FluentValidation.DependencyInjectionExtensions.dll
-E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\MediatR.dll
-E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\MediatR.Contracts.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\Microsoft.AspNetCore.OpenApi.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\Microsoft.Bcl.AsyncInterfaces.dll
@@ -174,4 +172,3 @@ E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\ru\Microsoft.CodeAnalysis
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\tr\Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\zh-Hans\Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
 E:\dev\akster\backend\PetSitting.Api\bin\Debug\net10.0\zh-Hant\Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
-E:\dev\akster\backend\PetSitting.Api\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt

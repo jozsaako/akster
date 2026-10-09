@@ -1,44 +1,38 @@
 namespace PetSitting.Domain;
 
+/// <summary>What kind of expected failure occurred; the API maps it to an HTTP status.</summary>
+public enum ErrorKind
+{
+    NotFound,
+    Validation,
+    Unauthorized,
+    Forbidden,
+    Conflict
+}
+
 /// <summary>
-/// Result type for expected domain failures vs unexpected exceptions
+/// Result type for expected failures vs unexpected exceptions
 /// </summary>
 public abstract record Result
 {
     public sealed record Success : Result;
-    public sealed record Failure(string Message) : Result;
+    public sealed record Failure(ErrorKind Kind, string Message) : Result;
 
-    public T Match<T>(Func<T> onSuccess, Func<string, T> onFailure) =>
-        this switch
-        {
-            Success => onSuccess(),
-            Failure f => onFailure(f.Message),
-            _ => throw new InvalidOperationException()
-        };
+    public static Result Ok() => new Success();
+    public static Result Fail(ErrorKind kind, string message) => new Failure(kind, message);
 
-    public void Match(Action onSuccess, Action<string> onFailure)
-    {
-        if (this is Failure f) onFailure(f.Message);
-        else onSuccess();
-    }
+    public T Match<T>(Func<T> onSuccess, Func<ErrorKind, string, T> onFailure) =>
+        this is Failure f ? onFailure(f.Kind, f.Message) : onSuccess();
 }
 
 public abstract record Result<T>
 {
     public sealed record Success(T Value) : Result<T>;
-    public sealed record Failure(string Message) : Result<T>;
+    public sealed record Failure(ErrorKind Kind, string Message) : Result<T>;
 
-    public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<string, TResult> onFailure) =>
-        this switch
-        {
-            Success s => onSuccess(s.Value),
-            Failure f => onFailure(f.Message),
-            _ => throw new InvalidOperationException()
-        };
+    public static Result<T> Ok(T value) => new Success(value);
+    public static Result<T> Fail(ErrorKind kind, string message) => new Failure(kind, message);
 
-    public void Match(Action<T> onSuccess, Action<string> onFailure)
-    {
-        if (this is Success s) onSuccess(s.Value);
-        else if (this is Failure f) onFailure(f.Message);
-    }
+    public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<ErrorKind, string, TResult> onFailure) =>
+        this is Success s ? onSuccess(s.Value) : onFailure(((Failure)this).Kind, ((Failure)this).Message);
 }

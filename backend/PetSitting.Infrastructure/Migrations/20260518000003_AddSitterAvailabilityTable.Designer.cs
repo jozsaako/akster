@@ -68,7 +68,7 @@ namespace PetSitting.Infrastructure.Migrations
                     b.ToTable("SitterAvailabilities");
                 });
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.RefreshToken", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -96,7 +96,7 @@ namespace PetSitting.Infrastructure.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.User", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -227,7 +227,7 @@ namespace PetSitting.Infrastructure.Migrations
 
             modelBuilder.Entity("PetSitting.Domain.Availability.SitterAvailability", b =>
                 {
-                    b.HasOne("PetSitting.Domain.Identity.User", "User")
+                    b.HasOne("PetSitting.Domain.Users.User", "User")
                         .WithOne()
                         .HasForeignKey("PetSitting.Domain.Availability.SitterAvailability", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -236,9 +236,9 @@ namespace PetSitting.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.RefreshToken", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.RefreshToken", b =>
                 {
-                    b.HasOne("PetSitting.Domain.Identity.User", "User")
+                    b.HasOne("PetSitting.Domain.Users.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -249,7 +249,7 @@ namespace PetSitting.Infrastructure.Migrations
 
             modelBuilder.Entity("PetSitting.Domain.Pets.Pet", b =>
                 {
-                    b.HasOne("PetSitting.Domain.Identity.User", "User")
+                    b.HasOne("PetSitting.Domain.Users.User", "User")
                         .WithMany("Pets")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -269,7 +269,7 @@ namespace PetSitting.Infrastructure.Migrations
                     b.Navigation("Pet");
                 });
 
-            modelBuilder.Entity("PetSitting.Domain.Identity.User", b =>
+            modelBuilder.Entity("PetSitting.Domain.Users.User", b =>
                 {
                     b.Navigation("Pets");
                 });

@@ -3,14 +3,16 @@ using System.Security.Cryptography;
 using Azure.Security.KeyVault.Secrets;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using MediatR;
 using FluentValidation;
 using PetSitting.Infrastructure.Persistence;
-using PetSitting.Infrastructure.Persistence.Repositories;
-using PetSitting.Application.Abstractions;
-using PetSitting.Application.Abstractions.Repositories;
+using PetSitting.Application.Availability;
+using PetSitting.Application.Common;
+using PetSitting.Application.Pets;
+using PetSitting.Application.Users;
+using PetSitting.Infrastructure.Persistence.Repositories.Availability;
+using PetSitting.Infrastructure.Persistence.Repositories.Pets;
+using PetSitting.Infrastructure.Persistence.Repositories.Users;
 using PetSitting.Infrastructure.Services;
-using PetSitting.Application.Common.Behaviors;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,19 +44,17 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPetRepository, PetRepository>();
 builder.Services.AddScoped<ISitterAvailabilityRepository, SitterAvailabilityRepository>();
 
+// Add managers (one per subsystem)
+builder.Services.AddScoped<IUsersManager, UsersManager>();
+builder.Services.AddScoped<IPetsManager, PetsManager>();
+builder.Services.AddScoped<IAvailabilityManager, AvailabilityManager>();
+
 // Add services
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
 
-// Add MediatR
-builder.Services.AddMediatR(config =>
-{
-    config.RegisterServicesFromAssemblyContaining(typeof(PetSitting.Application.Features.Identity.Login.LoginCommand));
-    config.AddOpenBehavior(typeof(ValidationBehavior<,>));
-});
-
-// Add FluentValidation
-builder.Services.AddValidatorsFromAssemblyContaining(typeof(PetSitting.Application.Features.Identity.Login.LoginCommandValidator));
+// Add FluentValidation (validators are found by assembly scan; managers call them explicitly)
+builder.Services.AddValidatorsFromAssemblyContaining<UsersManager>();
 
 // Configure JWT authentication
 // Attempt to load Jwt:Key from Key Vault or create it if missing
@@ -161,20 +161,11 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Validation failures surface as 400 with the same shape the frontend expects from handlers.
+// Unexpected exceptions surface as 500 with the same shape the frontend expects from managers.
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
-    var error = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
-    if (error is ValidationException validation)
-    {
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-        await context.Response.WriteAsJsonAsync(new { success = false, message = validation.Errors.First().ErrorMessage });
-    }
-    else
-    {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await context.Response.WriteAsJsonAsync(new { success = false, message = "An unexpected error occurred." });
-    }
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(new { success = false, message = "An unexpected error occurred." });
 }));
 
 // Configure the HTTP request pipeline.

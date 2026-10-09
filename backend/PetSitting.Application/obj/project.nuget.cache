@@ -1,12 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "ZPCAnMwew/s=",
+  "dgSpecHash": "3OLzkk/21fc=",
   "success": true,
   "projectFilePath": "E:\\dev\\akster\\backend\\PetSitting.Application\\PetSitting.Application.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Akos\\.nuget\\packages\\fluentvalidation\\12.0.0\\fluentvalidation.12.0.0.nupkg.sha512",
-    "C:\\Users\\Akos\\.nuget\\packages\\mediatr\\12.4.0\\mediatr.12.4.0.nupkg.sha512",
-    "C:\\Users\\Akos\\.nuget\\packages\\mediatr.contracts\\2.0.1\\mediatr.contracts.2.0.1.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.extensions.configuration\\10.0.3\\microsoft.extensions.configuration.10.0.3.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.extensions.configuration.abstractions\\10.0.3\\microsoft.extensions.configuration.abstractions.10.0.3.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.extensions.configuration.binder\\10.0.3\\microsoft.extensions.configuration.binder.10.0.3.nupkg.sha512",
