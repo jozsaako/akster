@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using PetSitting.Infrastructure.Persistence;
+using PetSitting.Infrastructure.Persistence.Localities;
 using PetSitting.Application.Availability;
 using PetSitting.Application.Common;
 using PetSitting.Application.Pets;
@@ -68,6 +69,7 @@ builder.Services.AddScoped<IPetsManager, PetsManager>();
 builder.Services.AddScoped<IAvailabilityManager, AvailabilityManager>();
 
 // Add services
+builder.Services.AddScoped<ILocalityLookup, LocalityLookup>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
 
@@ -159,6 +161,7 @@ using (var scope = app.Services.CreateScope())
             {
                 var db = services.GetRequiredService<AppDbContext>();
                 db.Database.Migrate();
+                LocalitySeeder.Seed(db);
                 break;
             }
             catch (Exception ex)

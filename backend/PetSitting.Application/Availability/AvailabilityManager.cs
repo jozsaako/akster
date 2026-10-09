@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PetSitting.Application.Common;
+using PetSitting.Application.Users;
 using PetSitting.Domain;
 using PetSitting.Domain.Availability;
 
@@ -13,10 +14,12 @@ public class AvailabilityManager : IAvailabilityManager
     private static readonly string[] ValidPetTypes = ["Dog", "Cat"];
 
     private readonly ISitterProfileRepository _availabilityRepository;
+    private readonly IUsersManager _usersManager;
 
-    public AvailabilityManager(ISitterProfileRepository availabilityRepository)
+    public AvailabilityManager(ISitterProfileRepository availabilityRepository, IUsersManager usersManager)
     {
         _availabilityRepository = availabilityRepository;
+        _usersManager = usersManager;
     }
 
     public async Task<Result<AvailabilityDto?>> GetAsync(int userId, CancellationToken cancellationToken = default)
@@ -54,6 +57,9 @@ public class AvailabilityManager : IAvailabilityManager
 
     public async Task<Result<AvailabilityDto>> ActivateAsync(int userId, CancellationToken cancellationToken = default)
     {
+        if (!await _usersManager.HasLocationAsync(userId, cancellationToken))
+            return Result<AvailabilityDto>.Fail(ErrorKind.Validation, "Save your location before becoming a sitter.");
+
         var now = DateTime.UtcNow;
         var profile = await _availabilityRepository.GetByUserIdAsync(userId, cancellationToken);
         var isNew = profile == null;

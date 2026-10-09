@@ -1,7 +1,22 @@
-<div class="profile-shell">
+<div class="profile-layout">
 
-  <!-- Profile Card -->
-  <section class="profile-card">
+  <nav class="profile-nav" aria-label="Profile sections">
+    @for (section of sections(); track section.id) {
+      <a
+        class="profile-nav__link"
+        [class.profile-nav__link--active]="activeSection() === section.id"
+        [href]="'#section-' + section.id"
+        (click)="scrollTo(section.id, $event)"
+      >{{ section.label }}</a>
+    }
+  </nav>
+
+  <div class="profile-content">
+
+  <!-- Personal info -->
+  <section id="section-info" class="profile-section">
+  <h2 class="section-title">Personal info</h2>
+  <div class="profile-card">
 
     <button
       class="profile-card__avatar-btn"
@@ -38,9 +53,12 @@
         I have pets
       </label>
       <label class="role-toggle">
-        <input type="checkbox" [checked]="isSitter()" [disabled]="isTogglingRole()" (change)="toggleSitter($event)" />
+        <input type="checkbox" [checked]="isSitter()" [disabled]="isTogglingRole() || (!hasLocation() && !isSitter())" (change)="toggleSitter($event)" />
         I'm a sitter
       </label>
+      @if (!hasLocation() && !isSitter()) {
+        <p class="location-hint">Save your location below to become a sitter.</p>
+      }
       @if (roleError()) {
         <p class="message message--error">{{ roleError() }}</p>
       }
@@ -72,6 +90,19 @@
       </div>
 
       <div class="field">
+        <label class="field__label" for="dateOfBirth">Date of birth</label>
+        <input
+          id="dateOfBirth"
+          class="field__input"
+          type="date"
+          formControlName="dateOfBirth"
+          min="1900-01-01"
+          [max]="today"
+          autocomplete="bday"
+        />
+      </div>
+
+      <div class="field">
         <label class="field__label" for="email">Email</label>
         <input
           id="email"
@@ -81,28 +112,6 @@
           formControlName="email"
           autocomplete="email"
         />
-      </div>
-
-      <div class="field field--address">
-        <label class="field__label" for="address">Address</label>
-        <input
-          id="address"
-          #addressInput
-          class="field__input"
-          type="text"
-          formControlName="address"
-          placeholder="Start typing your address…"
-          autocomplete="off"
-        />
-      </div>
-
-      <div class="address-map-wrapper">
-        <div #mapContainer class="address-map"></div>
-        @if (!mapReady()) {
-          <div class="address-map-placeholder">
-            <span>Map will appear here after address is selected</span>
-          </div>
-        }
       </div>
 
       @if (errorMessage()) {
@@ -120,11 +129,67 @@
         {{ isSaving() ? 'Saving…' : 'Save changes' }}
       </button>
     </form>
+  </div>
+  </section>
+
+  <!-- Location -->
+  <section id="section-location" class="profile-section">
+  <h2 class="section-title">Location</h2>
+  <div class="profile-card profile-card--start">
+    <p class="location-hint">Only your county and city are shown to others. Your street stays private.</p>
+    <form class="profile-form" [formGroup]="locationForm" (ngSubmit)="saveLocation()">
+      <div class="field">
+        <label class="field__label" for="county">County</label>
+        <select id="county" class="field__input" formControlName="county">
+          <option value="" disabled>Select a county</option>
+          @for (c of counties(); track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="city">City</label>
+        <input id="city" class="field__input" type="text" formControlName="city" autocomplete="address-level2" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="street">Street and number</label>
+        <input id="street" class="field__input" type="text" formControlName="street" autocomplete="street-address" (blur)="suggestPostalCode()" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="postalCode">Postal code (optional)</label>
+        <input id="postalCode" class="field__input" type="text" inputmode="numeric" maxlength="6" formControlName="postalCode" autocomplete="postal-code" (input)="postalCodeSuggested.set(false)" />
+        @if (postalCodeSuggested()) {
+          <span class="location-hint">Suggested from your address. Please check it.</span>
+        }
+      </div>
+
+      <div class="address-map-wrapper">
+        <div #mapContainer class="address-map"></div>
+        @if (!hasLocation()) {
+          <div class="address-map-placeholder">
+            <span>Save your location to see it on the map</span>
+          </div>
+        }
+      </div>
+
+      @if (locationError()) {
+        <p class="message message--error">{{ locationError() }}</p>
+      }
+      @if (locationSuccess()) {
+        <p class="message message--success">{{ locationSuccess() }}</p>
+      }
+
+      <button class="save-btn" type="submit" [disabled]="locationForm.invalid || locationForm.pristine || isSavingLocation()">
+        {{ isSavingLocation() ? 'Saving…' : 'Save location' }}
+      </button>
+      <p class="location-hint">Location data &copy; <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a> (CC BY 4.0)</p>
+    </form>
+  </div>
   </section>
 
   <!-- Pets Section (owners) -->
   @if (userService.currentUser()?.isOwner) {
-  <section class="pets-section">
+  <section id="section-pets" class="pets-section">
     <div class="pets-header">
       <h2 class="pets-title">My Pets</h2>
       @if (!showAddPetForm()) {
@@ -351,7 +416,7 @@
 
   <!-- Availability Section (active sitters) -->
   @if (isSitter()) {
-  <section class="availability-section">
+  <section id="section-availability" class="availability-section">
     <div class="availability-header">
       <h2 class="availability-title">My Availability</h2>
     </div>
@@ -456,4 +521,5 @@
   </section>
   } <!-- end @if Sitter -->
 
+  </div>
 </div>

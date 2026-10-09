@@ -14,17 +14,20 @@ public class UsersManager : IUsersManager
     private readonly IUserRepository _usersRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IBlobService _blobService;
+    private readonly ILocalityLookup _localityLookup;
     private readonly ILogger<UsersManager> _logger;
 
     public UsersManager(
         IUserRepository usersRepository,
         IJwtTokenService jwtTokenService,
         IBlobService blobService,
+        ILocalityLookup localityLookup,
         ILogger<UsersManager> logger)
     {
         _usersRepository = usersRepository;
         _jwtTokenService = jwtTokenService;
         _blobService = blobService;
+        _localityLookup = localityLookup;
         _logger = logger;
     }
 
@@ -114,6 +117,9 @@ public class UsersManager : IUsersManager
         var user = await _usersRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null) return Result<AuthResult>.Fail(ErrorKind.NotFound, UserNotFound);
 
+        if (input.DateOfBirth is { } dob && (dob > DateOnly.FromDateTime(DateTime.UtcNow) || dob.Year < 1900))
+            return Result<AuthResult>.Fail(ErrorKind.Validation, "Enter a valid date of birth.");
+
         var email = input.Email.Trim();
         var existing = await _usersRepository.GetByEmailAsync(email, cancellationToken);
         if (existing != null && existing.Id != user.Id)
@@ -122,7 +128,7 @@ public class UsersManager : IUsersManager
         user.FirstName = input.FirstName.Trim();
         user.LastName = input.LastName.Trim();
         user.Email = email;
-        user.Address = input.Address?.Trim();
+        user.DateOfBirth = input.DateOfBirth;
         user.UpdatedAt = DateTime.UtcNow;
         await _usersRepository.UpdateAsync(user, cancellationToken);
 
@@ -149,6 +155,30 @@ public class UsersManager : IUsersManager
         return Result<UserDto>.Ok(user.ToDto());
     }
 
+    public async Task<Result<UserDto>> UpdateLocationAsync(int userId, UpdateLocationInput input, CancellationToken cancellationToken = default)
+    {
+        var user = await _usersRepository.GetByIdAsync(userId, cancellationToken);
+        if (user == null) return Result<UserDto>.Fail(ErrorKind.NotFound, UserNotFound);
+
+        var county = input.County.Trim();
+        var city = input.City.Trim();
+        var postalCode = string.IsNullOrWhiteSpace(input.PostalCode) ? null : input.PostalCode.Trim();
+
+        var match = await _localityLookup.FindAsync(county, city, postalCode, cancellationToken);
+        if (match == null)
+            return Result<UserDto>.Fail(ErrorKind.Validation, "Address not found. Check the county, city and postal code.");
+
+        var location = Location.Create(county, city, postalCode, input.Street, match.Latitude, match.Longitude);
+        if (location is Result<Location>.Failure failure)
+            return Result<UserDto>.Fail(failure.Kind, failure.Message);
+
+        user.SetLocation(((Result<Location>.Success)location).Value);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _usersRepository.UpdateAsync(user, cancellationToken);
+
+        return Result<UserDto>.Ok(user.ToDto());
+    }
+
     public async Task<Result<UserDto>> SetOwnerAsync(int userId, bool isOwner, CancellationToken cancellationToken = default)
     {
         var user = await _usersRepository.GetByIdAsync(userId, cancellationToken);
@@ -160,6 +190,11 @@ public class UsersManager : IUsersManager
 
         return Result<UserDto>.Ok(user.ToDto());
     }
+
+    public async Task<bool> HasLocationAsync(int userId, CancellationToken cancellationToken = default) =>
+        (await _usersRepository.GetByIdAsync(userId, cancellationToken))?.Location?.IsGeocoded == true;
+
+    public IReadOnlyList<string> GetCounties() => Counties.All;
 
     public async Task<bool> ExistsAsync(int userId, CancellationToken cancellationToken = default) =>
         await _usersRepository.GetByIdAsync(userId, cancellationToken) != null;

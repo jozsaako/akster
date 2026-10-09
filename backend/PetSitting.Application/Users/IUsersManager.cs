@@ -14,6 +14,12 @@ public interface IUsersManager
     Task<Result<UserDto>> UploadAvatarAsync(int userId, FileUpload file, CancellationToken cancellationToken = default);
     Task<Result<UserDto>> SetOwnerAsync(int userId, bool isOwner, CancellationToken cancellationToken = default);
 
+    Task<Result<UserDto>> UpdateLocationAsync(int userId, UpdateLocationInput input, CancellationToken cancellationToken = default);
+    IReadOnlyList<string> GetCounties();
+
+    /// <summary>For other subsystems: has this user saved a geocoded location?</summary>
+    Task<bool> HasLocationAsync(int userId, CancellationToken cancellationToken = default);
+
     /// <summary>For other subsystems: does this user exist?</summary>
     Task<bool> ExistsAsync(int userId, CancellationToken cancellationToken = default);
 }

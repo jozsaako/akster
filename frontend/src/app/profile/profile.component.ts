@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  HostListener,
   NgZone,
   OnInit,
   PLATFORM_ID,
@@ -34,7 +35,6 @@ declare const google: any;
 })
 export class ProfileComponent implements OnInit, AfterViewInit {
   @ViewChild('mapContainer') mapContainerRef?: ElementRef<HTMLDivElement>;
-  @ViewChild('addressInput') addressInputRef?: ElementRef<HTMLInputElement>;
 
   private readonly platformId = inject(PLATFORM_ID);
   private readonly ngZone = inject(NgZone);
@@ -50,8 +50,33 @@ export class ProfileComponent implements OnInit, AfterViewInit {
   protected readonly form = new FormGroup({
     firstName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     lastName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    dateOfBirth: new FormControl('', { nonNullable: true }),
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
-    address: new FormControl('', { nonNullable: true }),
+  });
+
+  protected readonly today = new Date().toISOString().slice(0, 10);
+
+  // Side menu: sections shown depend on the user's roles
+  protected readonly activeSection = signal('info');
+  protected readonly sections = computed(() => [
+    { id: 'info', label: 'Personal info' },
+    { id: 'location', label: 'Location' },
+    ...(this.userService.currentUser()?.isOwner ? [{ id: 'pets', label: 'My pets' }] : []),
+    ...(this.isSitter() ? [{ id: 'availability', label: 'Sitter profile' }] : []),
+  ]);
+
+  protected readonly counties = signal<string[]>([]);
+  protected readonly isSavingLocation = signal(false);
+  protected readonly postalCodeSuggested = signal(false);
+  protected readonly locationError = signal<string | null>(null);
+  protected readonly locationSuccess = signal<string | null>(null);
+  protected readonly hasLocation = computed(() => this.userService.currentUser()?.location?.latitude != null);
+
+  protected readonly locationForm = new FormGroup({
+    county: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    city: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    street: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    postalCode: new FormControl('', { nonNullable: true, validators: [Validators.pattern(/^\d{6}$/)] }),
   });
 
   // Pet signals
@@ -102,7 +127,6 @@ export class ProfileComponent implements OnInit, AfterViewInit {
 
   private map: any = null;
   private marker: any = null;
-  private autocomplete: any = null;
 
   constructor(
     public readonly userService: UserService,
@@ -124,13 +148,23 @@ export class ProfileComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    firstValueFrom(this.userService.getCounties())
+      .then(r => this.counties.set(r.counties))
+      .catch(() => this.locationError.set('Could not load the county list.'));
+
     const user = this.userService.currentUser();
     if (user) {
       this.form.setValue({
         firstName: user.firstName,
         lastName: user.lastName,
+        dateOfBirth: user.dateOfBirth ?? '',
         email: user.email,
-        address: user.address ?? '',
+      });
+      this.locationForm.setValue({
+        county: user.location?.county ?? '',
+        city: user.location?.city ?? '',
+        street: user.location?.street ?? '',
+        postalCode: user.location?.postalCode ?? '',
       });
     }
   }
@@ -141,25 +175,39 @@ export class ProfileComponent implements OnInit, AfterViewInit {
     }
   }
 
+  // --- Side menu ---
+
+  protected scrollTo(id: string, event: Event): void {
+    event.preventDefault();
+    this.activeSection.set(id);
+    document.getElementById('section-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  @HostListener('window:scroll')
+  protected onScroll(): void {
+    const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+    const ids = this.sections().map(s => s.id);
+    const current = atBottom
+      ? ids[ids.length - 1]
+      : [...ids].reverse().find(id => (document.getElementById('section-' + id)?.getBoundingClientRect().top ?? 1) <= 140);
+    this.activeSection.set(current ?? ids[0]);
+  }
+
   // --- Google Maps ---
 
   private loadGoogleMaps(): void {
     if (typeof google !== 'undefined' && google.maps) {
       this.initMap();
-      this.initAutocomplete();
       return;
     }
 
     const callbackName = '__gmapsCb';
     (window as any)[callbackName] = () => {
-      this.ngZone.run(() => {
-        this.initMap();
-        this.initAutocomplete();
-      });
+      this.ngZone.run(() => this.initMap());
     };
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${environment.googleMapsApiKey}&libraries=places&callback=${callbackName}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${environment.googleMapsApiKey}&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
@@ -169,97 +217,34 @@ export class ProfileComponent implements OnInit, AfterViewInit {
     const el = this.mapContainerRef?.nativeElement;
     if (!el) return;
 
-    // Default center: Budapest
-    const defaultCenter = { lat: 47.4979, lng: 19.0402 };
-
+    // Default view: all of Romania
     this.map = new google.maps.Map(el, {
-      center: defaultCenter,
-      zoom: 11,
+      center: { lat: 45.9432, lng: 24.9668 },
+      zoom: 6,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
     });
 
-    this.marker = new google.maps.Marker({
-      map: this.map,
-      draggable: true,
-      visible: false,
-    });
-
-    // Allow dragging the marker to update address
-    this.marker.addListener('dragend', (event: any) => {
-      this.ngZone.run(() => this.reverseGeocode(event.latLng));
-    });
-
-    // Click map to drop pin
-    this.map.addListener('click', (event: any) => {
-      this.ngZone.run(() => {
-        this.placeMarker(event.latLng);
-        this.reverseGeocode(event.latLng);
-      });
-    });
-
+    this.marker = new google.maps.Marker({ map: this.map, visible: false });
     this.mapReady.set(true);
-
-    // If user already has an address, geocode it on load
-    const existing = this.form.controls.address.value;
-    if (existing) {
-      this.geocodeAddress(existing);
-    }
+    this.showLocationOnMap();
   }
 
-  private initAutocomplete(): void {
-    const input = this.addressInputRef?.nativeElement;
-    if (!input) return;
+  /** Pins the saved location: the full address when Google can find it, otherwise the stored centroid. */
+  private showLocationOnMap(): void {
+    const loc = this.userService.currentUser()?.location;
+    if (!this.map || loc?.latitude == null || loc.longitude == null) return;
 
-    this.autocomplete = new google.maps.places.Autocomplete(input, {
-      fields: ['formatted_address', 'geometry'],
-    });
-
-    this.autocomplete.addListener('place_changed', () => {
+    const centroid = { lat: loc.latitude, lng: loc.longitude };
+    const address = [loc.street, loc.city, loc.county, 'Romania'].filter(Boolean).join(', ');
+    new google.maps.Geocoder().geocode({ address }, (results: any[], status: string) => {
       this.ngZone.run(() => {
-        const place = this.autocomplete.getPlace();
-        if (!place?.geometry) return;
-
-        this.form.controls.address.setValue(place.formatted_address ?? '');
-        this.form.controls.address.markAsDirty();
-
-        const location = place.geometry.location;
-        this.placeMarker(location);
-        this.map?.setCenter(location);
-        this.map?.setZoom(15);
-      });
-    });
-  }
-
-  private placeMarker(latLng: any): void {
-    if (!this.marker) return;
-    this.marker.setPosition(latLng);
-    this.marker.setVisible(true);
-  }
-
-  private reverseGeocode(latLng: any): void {
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ location: latLng }, (results: any[], status: string) => {
-      this.ngZone.run(() => {
-        if (status === 'OK' && results?.[0]) {
-          this.form.controls.address.setValue(results[0].formatted_address);
-          this.form.controls.address.markAsDirty();
-        }
-      });
-    });
-  }
-
-  private geocodeAddress(address: string): void {
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ address }, (results: any[], status: string) => {
-      this.ngZone.run(() => {
-        if (status === 'OK' && results?.[0]) {
-          const location = results[0].geometry.location;
-          this.placeMarker(location);
-          this.map?.setCenter(location);
-          this.map?.setZoom(15);
-        }
+        const position = status === 'OK' && results?.[0] ? results[0].geometry.location : centroid;
+        this.marker.setPosition(position);
+        this.marker.setVisible(true);
+        this.map.setCenter(position);
+        this.map.setZoom(status === 'OK' ? 15 : 12);
       });
     });
   }
@@ -312,9 +297,9 @@ export class ProfileComponent implements OnInit, AfterViewInit {
     this.successMessage.set(null);
 
     try {
-      const { firstName, lastName, email, address } = this.form.getRawValue();
+      const { firstName, lastName, email, dateOfBirth } = this.form.getRawValue();
       const result = await firstValueFrom(
-        this.userService.updateProfile({ firstName, lastName, email, address: address || undefined })
+        this.userService.updateProfile({ firstName, lastName, email, dateOfBirth: dateOfBirth || null })
       );
 
       if (!result.success) {
@@ -335,6 +320,56 @@ export class ProfileComponent implements OnInit, AfterViewInit {
       this.errorMessage.set('Could not reach the server. Please try again.');
     } finally {
       this.isSaving.set(false);
+    }
+  }
+
+  /** Suggests a postal code from the typed address (browser-side Google geocoding); never overwrites one the user typed. */
+  protected suggestPostalCode(): void {
+    const { county, city, street, postalCode } = this.locationForm.getRawValue();
+    if (postalCode || !county || !city || !street || typeof google === 'undefined' || !google.maps) return;
+
+    const address = [street, city, county, 'Romania'].join(', ');
+    new google.maps.Geocoder().geocode({ address, componentRestrictions: { country: 'RO' } }, (results: any[], status: string) => {
+      this.ngZone.run(() => {
+        const code = status === 'OK'
+          ? results?.[0]?.address_components?.find((c: any) => c.types.includes('postal_code'))?.long_name
+          : null;
+        const control = this.locationForm.controls.postalCode;
+        if (code && /^\d{6}$/.test(code) && !control.value) {
+          control.setValue(code);
+          control.markAsDirty();
+          this.postalCodeSuggested.set(true);
+        }
+      });
+    });
+  }
+
+  protected async saveLocation(): Promise<void> {
+    if (this.locationForm.invalid || this.isSavingLocation()) return;
+
+    this.isSavingLocation.set(true);
+    this.locationError.set(null);
+    this.locationSuccess.set(null);
+
+    try {
+      const { county, city, street, postalCode } = this.locationForm.getRawValue();
+      const result = await firstValueFrom(
+        this.userService.updateLocation({ county, city, street, postalCode: postalCode || undefined }));
+
+      if (!result.success || !result.user) {
+        this.locationError.set(result.message ?? 'Something went wrong.');
+        return;
+      }
+
+      this.userService.setUser(result.user);
+      this.locationForm.markAsPristine();
+      this.postalCodeSuggested.set(false);
+      this.locationSuccess.set('Location saved.');
+      this.showLocationOnMap();
+    } catch (e: any) {
+      this.locationError.set(e?.error?.message ?? 'Could not reach the server. Please try again.');
+    } finally {
+      this.isSavingLocation.set(false);
     }
   }
 

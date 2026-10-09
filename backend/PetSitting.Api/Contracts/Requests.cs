@@ -36,7 +36,14 @@ public record UpdateProfileRequest(
     [Required(ErrorMessage = "All fields are required.")]
     [EmailAddress(ErrorMessage = "Invalid email format.")]
     string Email,
-    string? Address);
+    DateOnly? DateOfBirth);
+
+public record UpdateLocationRequest(
+    [Required(ErrorMessage = "County is required.")] string County,
+    [Required(ErrorMessage = "City is required.")] string City,
+    [Required(ErrorMessage = "Street and number are required.")] string Street,
+    [RegularExpression(@"^\d{6}$", ErrorMessage = "Postal code must be 6 digits.")]
+    string? PostalCode);
 
 // Gender and Type are nullable so a missing value fails [Required] instead of defaulting to the first enum member.
 public record PetRequest(

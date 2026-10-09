@@ -15,9 +15,12 @@ public class User
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsEmailConfirmed { get; set; }
+    public DateOnly? DateOfBirth { get; set; }
     public bool IsOwner { get; set; } = true;
     public string? ProfilePictureUrl { get; set; }
-    public string? Address { get; set; }
+    public Location? Location { get; private set; }
+
+    public void SetLocation(Location location) => Location = location;
 
     // Relationships
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();

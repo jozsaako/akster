@@ -47,6 +47,10 @@
 
 **Migration:** add `IsActive` to the sitter table; set it to 1 for users with Role=Sitter who have a row; add `IsOwner` (1 for Role=Owner, 0 for Role=Sitter, to preserve what they see today); rename table; drop `Role`.
 
+## Status
+- Roles slice: done (committed).
+- Location slice: implemented (backend, migration `AddLocation`, profile form, activation requires a saved location). Profile map is display-only now (no autocomplete, pin dragging or click-to-set).
+
 ## Tasks (outline)
 1. Roles slice, one green build: `IsOwner`, `SitterProfile` rename + `IsActive`, activate/deactivate, remove `UserRole` from backend/JWT/frontend, migration with data fix, profile toggles
 2. `Location` value object + EF owned mapping + locality table/seed + migration

@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AuthResult, LoginCredentials, RegisterCredentials, SetOwnerRequest, UpdateProfileRequest, User } from '../models/user.model';
+import { AuthResult, CountiesResult, LoginCredentials, RegisterCredentials, SetOwnerRequest, UpdateLocationRequest, UpdateProfileRequest, User } from '../models/user.model';
 import { TokenService } from './token.service';
 import { environment } from '../../environments/environment';
 
@@ -13,6 +13,8 @@ export class UserService {
   private static readonly BASE_URL = environment.apiBaseUrl;
   private static readonly LOGIN_URL = `${UserService.BASE_URL}/login`;
   private static readonly REGISTER_URL = `${UserService.BASE_URL}/register`;
+  private static readonly LOCATION_URL = `${UserService.BASE_URL}/me/location`;
+  private static readonly COUNTIES_URL = `${UserService.BASE_URL}/counties`;
   private static readonly OWNER_URL = `${UserService.BASE_URL}/me/owner`;
   private static readonly LOGOUT_URL = `${UserService.BASE_URL}/logout`;
   private static readonly ME_URL = `${UserService.BASE_URL}/me`;
@@ -52,6 +54,18 @@ export class UserService {
       ? new HttpHeaders({ Authorization: `Bearer ${token}` })
       : undefined;
     return this.http.get<AuthResult>(UserService.ME_URL, { headers });
+  }
+
+  updateLocation(data: UpdateLocationRequest): Observable<AuthResult> {
+    const token = this.tokenService.getToken();
+    const headers = token
+      ? new HttpHeaders({ Authorization: `Bearer ${token}` })
+      : undefined;
+    return this.http.put<AuthResult>(UserService.LOCATION_URL, data, { headers });
+  }
+
+  getCounties(): Observable<CountiesResult> {
+    return this.http.get<CountiesResult>(UserService.COUNTIES_URL);
   }
 
   setOwner(isOwner: boolean): Observable<AuthResult> {

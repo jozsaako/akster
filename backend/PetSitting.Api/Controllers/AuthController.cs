@@ -43,7 +43,7 @@ public class AuthController : ApiControllerBase
     public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileRequest request)
     {
         var result = await _usersManager.UpdateProfileAsync(
-            UserId, new UpdateProfileInput(request.FirstName, request.LastName, request.Email, request.Address));
+            UserId, new UpdateProfileInput(request.FirstName, request.LastName, request.Email, request.DateOfBirth));
         return ToAction(result, a => ToResponse("Profile updated.", a));
     }
 
@@ -57,6 +57,15 @@ public class AuthController : ApiControllerBase
         return ToAction(await _usersManager.UploadAvatarAsync(UserId, ToUpload(file)),
             user => new AuthResponse(true, "Avatar uploaded.", user));
     }
+
+    [HttpPut("me/location")]
+    [Authorize]
+    public async Task<IActionResult> UpdateLocation([FromBody] UpdateLocationRequest r) =>
+        ToAction(await _usersManager.UpdateLocationAsync(UserId, new UpdateLocationInput(r.County, r.City, r.Street, r.PostalCode)),
+            user => new AuthResponse(true, "Location saved.", user));
+
+    [HttpGet("counties")]
+    public IActionResult GetCounties() => Ok(new CountiesResponse(true, string.Empty, _usersManager.GetCounties()));
 
     [HttpPut("me/owner")]
     [Authorize]

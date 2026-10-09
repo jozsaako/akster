@@ -4,4 +4,6 @@ public record LoginInput(string Email, string Password);
 
 public record RegisterInput(string Email, string Password, string FirstName, string LastName);
 
-public record UpdateProfileInput(string FirstName, string LastName, string Email, string? Address);
+public record UpdateProfileInput(string FirstName, string LastName, string Email, DateOnly? DateOfBirth);
+
+public record UpdateLocationInput(string County, string City, string Street, string? PostalCode);
