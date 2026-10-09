@@ -2,8 +2,8 @@
 sql_data/
 
 # .NET / Visual Studio
-backend/bin/
-backend/obj/
+**/bin/
+**/obj/
 backend/*.user
 backend/.vs/
 
