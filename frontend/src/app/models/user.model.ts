@@ -3,7 +3,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: UserRole;
+  isOwner: boolean;
   profilePictureUrl?: string;
   address?: string;
 }
@@ -20,8 +20,8 @@ export interface RegisterCredentials {
     lastName?: string;
 }
 
-export interface ChangeRoleRequest {
-  Role: UserRole;
+export interface SetOwnerRequest {
+  isOwner: boolean;
 }
 
 export interface UpdateProfileRequest {
@@ -37,11 +37,6 @@ export interface AuthResult {
   message?: string;
   token: string;
   refreshToken: string;
-}
-
-export enum UserRole {
-    Owner = 'Owner',
-    Sitter = 'Sitter',
 }
 
 export type PetType = 'Cat' | 'Dog';
@@ -92,6 +87,7 @@ export interface PetResult {
 export interface SitterAvailability {
   id: number;
   userId: number;
+  isActive: boolean;
   schedule: Record<string, string[]>;
   services: string[];
   acceptedPetTypes: string[];

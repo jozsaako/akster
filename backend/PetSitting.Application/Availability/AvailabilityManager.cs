@@ -12,9 +12,9 @@ public class AvailabilityManager : IAvailabilityManager
     private static readonly string[] ValidServices = ["DogWalking", "DropInVisits", "HomeBoarding", "HouseSitting", "Daycare"];
     private static readonly string[] ValidPetTypes = ["Dog", "Cat"];
 
-    private readonly ISitterAvailabilityRepository _availabilityRepository;
+    private readonly ISitterProfileRepository _availabilityRepository;
 
-    public AvailabilityManager(ISitterAvailabilityRepository availabilityRepository)
+    public AvailabilityManager(ISitterProfileRepository availabilityRepository)
     {
         _availabilityRepository = availabilityRepository;
     }
@@ -37,7 +37,7 @@ public class AvailabilityManager : IAvailabilityManager
         var now = DateTime.UtcNow;
         var record = await _availabilityRepository.GetByUserIdAsync(userId, cancellationToken);
         var isNew = record == null;
-        record ??= new SitterAvailability { UserId = userId, CreatedAt = now };
+        record ??= new SitterProfile { UserId = userId, CreatedAt = now };
 
         record.ScheduleJson = JsonSerializer.Serialize(schedule);
         record.ServicesJson = JsonSerializer.Serialize(input.Services.Where(ValidServices.Contains).Distinct().ToList());
@@ -50,5 +50,34 @@ public class AvailabilityManager : IAvailabilityManager
         else await _availabilityRepository.UpdateAsync(record, cancellationToken);
 
         return Result<AvailabilityDto>.Ok(record.ToDto());
+    }
+
+    public async Task<Result<AvailabilityDto>> ActivateAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var profile = await _availabilityRepository.GetByUserIdAsync(userId, cancellationToken);
+        var isNew = profile == null;
+        profile ??= new SitterProfile { UserId = userId, CreatedAt = now };
+
+        profile.Activate();
+        profile.UpdatedAt = now;
+
+        if (isNew) await _availabilityRepository.AddAsync(profile, cancellationToken);
+        else await _availabilityRepository.UpdateAsync(profile, cancellationToken);
+
+        return Result<AvailabilityDto>.Ok(profile.ToDto());
+    }
+
+    public async Task<Result<AvailabilityDto>> DeactivateAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var profile = await _availabilityRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (profile == null)
+            return Result<AvailabilityDto>.Fail(ErrorKind.NotFound, "Sitter profile not found.");
+
+        profile.Deactivate();
+        profile.UpdatedAt = DateTime.UtcNow;
+        await _availabilityRepository.UpdateAsync(profile, cancellationToken);
+
+        return Result<AvailabilityDto>.Ok(profile.ToDto());
     }
 }

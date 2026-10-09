@@ -6,18 +6,6 @@
   </nav>
 
   <div class="navbar__actions">
-    <span class="role-badge" [class.role-badge--sitter]="userService.currentUser()?.role === 'Sitter'">
-      {{ userService.currentUser()?.role }}
-    </span>
-
-    <button
-      class="btn btn--ghost"
-      (click)="switchRole()"
-      [disabled]="isSwitchingRole()"
-    >
-      {{ isSwitchingRole() ? '…' : 'Switch to ' + oppositeRole }}
-    </button>
-
     <div class="navbar__user">
       <button class="navbar__avatar-btn" (click)="toggleDropdown($event)" type="button">
         @if (userService.currentUser()?.profilePictureUrl) {

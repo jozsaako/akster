@@ -60,7 +60,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Add repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPetRepository, PetRepository>();
-builder.Services.AddScoped<ISitterAvailabilityRepository, SitterAvailabilityRepository>();
+builder.Services.AddScoped<ISitterProfileRepository, SitterProfileRepository>();
 
 // Add managers (one per subsystem)
 builder.Services.AddScoped<IUsersManager, UsersManager>();

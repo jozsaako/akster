@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AuthResult, ChangeRoleRequest, LoginCredentials, RegisterCredentials, UpdateProfileRequest, User, UserRole } from '../models/user.model';
+import { AuthResult, LoginCredentials, RegisterCredentials, SetOwnerRequest, UpdateProfileRequest, User } from '../models/user.model';
 import { TokenService } from './token.service';
 import { environment } from '../../environments/environment';
 
@@ -13,7 +13,7 @@ export class UserService {
   private static readonly BASE_URL = environment.apiBaseUrl;
   private static readonly LOGIN_URL = `${UserService.BASE_URL}/login`;
   private static readonly REGISTER_URL = `${UserService.BASE_URL}/register`;
-  private static readonly CHANGE_ROLE_URL = `${UserService.BASE_URL}/change-role`;
+  private static readonly OWNER_URL = `${UserService.BASE_URL}/me/owner`;
   private static readonly LOGOUT_URL = `${UserService.BASE_URL}/logout`;
   private static readonly ME_URL = `${UserService.BASE_URL}/me`;
   private static readonly AVATAR_URL = `${UserService.BASE_URL}/me/avatar`;
@@ -54,14 +54,13 @@ export class UserService {
     return this.http.get<AuthResult>(UserService.ME_URL, { headers });
   }
 
-  changeRole(role: UserRole): Observable<AuthResult> {
-    const request: ChangeRoleRequest = { Role: role };
+  setOwner(isOwner: boolean): Observable<AuthResult> {
+    const request: SetOwnerRequest = { isOwner };
     const token = this.tokenService.getToken();
     const headers = token
       ? new HttpHeaders({ Authorization: `Bearer ${token}` })
       : undefined;
-
-    return this.http.post<AuthResult>(UserService.CHANGE_ROLE_URL, request, { headers });
+    return this.http.put<AuthResult>(UserService.OWNER_URL, request, { headers });
   }
 
   uploadAvatar(file: File): Observable<AuthResult> {

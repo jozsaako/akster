@@ -28,7 +28,7 @@ public record RegisterRequest(
     string LastName);
 
 public record RefreshRequest(string RefreshToken);
-public record ChangeRoleRequest(string Role);
+public record SetOwnerRequest([Required(ErrorMessage = "IsOwner is required.")] bool? IsOwner);
 
 public record UpdateProfileRequest(
     [Required(ErrorMessage = "All fields are required.")] string FirstName,

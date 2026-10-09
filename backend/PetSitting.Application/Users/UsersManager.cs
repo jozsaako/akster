@@ -56,8 +56,7 @@ public class UsersManager : IUsersManager
             LastName = input.LastName,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
-            IsEmailConfirmed = false,
-            Role = UserRole.Owner
+            IsEmailConfirmed = false
         };
 
         var refresh = _jwtTokenService.CreateRefreshToken();
@@ -150,19 +149,16 @@ public class UsersManager : IUsersManager
         return Result<UserDto>.Ok(user.ToDto());
     }
 
-    public async Task<Result<AuthResult>> ChangeRoleAsync(int userId, string role, CancellationToken cancellationToken = default)
+    public async Task<Result<UserDto>> SetOwnerAsync(int userId, bool isOwner, CancellationToken cancellationToken = default)
     {
         var user = await _usersRepository.GetByIdAsync(userId, cancellationToken);
-        if (user == null) return Result<AuthResult>.Fail(ErrorKind.NotFound, UserNotFound);
+        if (user == null) return Result<UserDto>.Fail(ErrorKind.NotFound, UserNotFound);
 
-        if (!Enum.TryParse<UserRole>(role, true, out var parsed))
-            return Result<AuthResult>.Fail(ErrorKind.Validation, "Invalid role. Valid roles are: Owner, Sitter.");
-
-        user.Role = parsed;
+        user.IsOwner = isOwner;
         user.UpdatedAt = DateTime.UtcNow;
         await _usersRepository.UpdateAsync(user, cancellationToken);
 
-        return Result<AuthResult>.Ok(new AuthResult(user.ToDto(), _jwtTokenService.GenerateJwt(user)));
+        return Result<UserDto>.Ok(user.ToDto());
     }
 
     public async Task<bool> ExistsAsync(int userId, CancellationToken cancellationToken = default) =>

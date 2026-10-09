@@ -6,6 +6,7 @@ namespace PetSitting.Application.Availability;
 public record AvailabilityDto(
     int Id,
     int UserId,
+    bool IsActive,
     Dictionary<string, List<string>> Schedule,
     List<string> Services,
     List<string> AcceptedPetTypes,
@@ -16,9 +17,10 @@ public record AvailabilityDto(
 
 public static class AvailabilityMappings
 {
-    public static AvailabilityDto ToDto(this SitterAvailability a) => new(
+    public static AvailabilityDto ToDto(this SitterProfile a) => new(
         a.Id,
         a.UserId,
+        a.IsActive,
         JsonSerializer.Deserialize<Dictionary<string, List<string>>>(a.ScheduleJson) ?? new(),
         JsonSerializer.Deserialize<List<string>>(a.ServicesJson) ?? new(),
         JsonSerializer.Deserialize<List<string>>(a.AcceptedPetTypesJson) ?? new(),

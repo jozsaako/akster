@@ -58,10 +58,11 @@ public class AuthController : ApiControllerBase
             user => new AuthResponse(true, "Avatar uploaded.", user));
     }
 
-    [HttpPost("change-role")]
+    [HttpPut("me/owner")]
     [Authorize]
-    public async Task<IActionResult> ChangeRole([FromBody] ChangeRoleRequest request) =>
-        ToAction(await _usersManager.ChangeRoleAsync(UserId, request.Role), a => ToResponse("Role changed successfully.", a));
+    public async Task<IActionResult> SetOwner([FromBody] SetOwnerRequest request) =>
+        ToAction(await _usersManager.SetOwnerAsync(UserId, request.IsOwner!.Value),
+            user => new AuthResponse(true, "Updated.", user));
 
     private static AuthResponse ToResponse(string message, AuthResult a) =>
         new(true, message, a.User, a.Token, a.RefreshToken);

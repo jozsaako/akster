@@ -21,6 +21,14 @@ public class AvailabilityController : ApiControllerBase
     public async Task<IActionResult> GetAvailability() =>
         ToAction(await _availabilityManager.GetAsync(UserId), a => new AvailabilityResponse(true, string.Empty, a));
 
+    [HttpPost("activate")]
+    public async Task<IActionResult> Activate() =>
+        ToAction(await _availabilityManager.ActivateAsync(UserId), a => new AvailabilityResponse(true, "Sitter profile activated.", a));
+
+    [HttpPost("deactivate")]
+    public async Task<IActionResult> Deactivate() =>
+        ToAction(await _availabilityManager.DeactivateAsync(UserId), a => new AvailabilityResponse(true, "Sitter profile deactivated.", a));
+
     [HttpPut]
     public async Task<IActionResult> UpsertAvailability([FromBody] AvailabilityRequest r)
     {

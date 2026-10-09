@@ -17,17 +17,17 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Pet> Pets => Set<Pet>();
     public DbSet<PetPicture> PetPictures => Set<PetPicture>();
-    public DbSet<SitterAvailability> SitterAvailabilities => Set<SitterAvailability>();
+    public DbSet<SitterProfile> SitterProfiles => Set<SitterProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // One-to-One: SitterAvailability with User
-        modelBuilder.Entity<SitterAvailability>()
-            .HasOne(a => a.User)
-            .WithOne(u => u.SitterAvailability)
-            .HasForeignKey<SitterAvailability>(a => a.UserId)
+        // One-to-One: SitterProfile with User (by id, no navigation across subsystems)
+        modelBuilder.Entity<SitterProfile>()
+            .HasOne<User>()
+            .WithOne()
+            .HasForeignKey<SitterProfile>(a => a.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // One-to-Many: User with RefreshTokens

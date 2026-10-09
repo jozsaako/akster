@@ -19,7 +19,7 @@ import { firstValueFrom } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { PetService } from '../services/pet.service';
 import { AvailabilityService } from '../services/availability.service';
-import { Pet, PetGender, PetType, UserRole } from '../models/user.model';
+import { Pet, PetGender, PetType } from '../models/user.model';
 import { environment } from '../../environments/environment';
 
 declare const google: any;
@@ -94,8 +94,11 @@ export class ProfileComponent implements OnInit, AfterViewInit {
   protected readonly selectedPetTypes = signal<string[]>([]);
   protected readonly maxPets = signal(1);
   protected readonly bio = signal('');
+  protected readonly isSitter = signal(false);
+  protected readonly isTogglingRole = signal(false);
+  protected readonly roleError = signal<string | null>(null);
 
-  private readonly _userRole = computed(() => this.userService.currentUser()?.role);
+  private readonly _isOwner = computed(() => !!this.userService.currentUser()?.isOwner);
 
   private map: any = null;
   private marker: any = null;
@@ -107,21 +110,17 @@ export class ProfileComponent implements OnInit, AfterViewInit {
     private readonly availabilityService: AvailabilityService,
   ) {
     effect(() => {
-      const role = this._userRole();
+      const isOwner = this._isOwner();
       untracked(() => {
-        if (role === UserRole.Owner) {
+        if (isOwner) {
           this.pets.set([]);
           this.loadPets();
-        } else if (role === UserRole.Sitter) {
-          this.schedule.set({});
-          this.selectedServices.set([]);
-          this.selectedPetTypes.set([]);
-          this.maxPets.set(1);
-          this.bio.set('');
-          this.loadAvailability();
+        } else {
+          this.pets.set([]);
         }
       });
     });
+    this.loadAvailability();
   }
 
   ngOnInit(): void {
@@ -522,6 +521,7 @@ export class ProfileComponent implements OnInit, AfterViewInit {
     this.isAvailabilityLoading.set(true);
     try {
       const result = await firstValueFrom(this.availabilityService.getAvailability());
+      this.isSitter.set(!!result.availability?.isActive);
       if (result.success && result.availability) {
         this.schedule.set(result.availability.schedule ?? {});
         this.selectedServices.set(result.availability.services ?? []);
@@ -533,6 +533,41 @@ export class ProfileComponent implements OnInit, AfterViewInit {
       // silently fail on load
     } finally {
       this.isAvailabilityLoading.set(false);
+    }
+  }
+
+  protected async toggleOwner(event: Event): Promise<void> {
+    const checked = (event.target as HTMLInputElement).checked;
+    await this.changeRole(async () => {
+      const result = await firstValueFrom(this.userService.setOwner(checked));
+      if (result.success && result.user) this.userService.setUser(result.user);
+      return result.success;
+    }, event);
+  }
+
+  protected async toggleSitter(event: Event): Promise<void> {
+    const checked = (event.target as HTMLInputElement).checked;
+    await this.changeRole(async () => {
+      const result = await firstValueFrom(
+        checked ? this.availabilityService.activate() : this.availabilityService.deactivate());
+      if (result.success && result.availability) {
+        this.isSitter.set(result.availability.isActive);
+        if (checked) await this.loadAvailability();
+      }
+      return result.success;
+    }, event);
+  }
+
+  private async changeRole(action: () => Promise<boolean>, event: Event): Promise<void> {
+    this.isTogglingRole.set(true);
+    this.roleError.set(null);
+    try {
+      if (!await action()) throw new Error();
+    } catch {
+      this.roleError.set('Could not update. Please try again.');
+      (event.target as HTMLInputElement).checked = !(event.target as HTMLInputElement).checked;
+    } finally {
+      this.isTogglingRole.set(false);
     }
   }
 

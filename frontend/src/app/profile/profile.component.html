@@ -32,9 +32,19 @@
       {{ form.value.firstName || '—' }} {{ form.value.lastName || '' }}
     </h1>
 
-    <span class="role-badge" [class.role-badge--sitter]="userService.currentUser()?.role === 'Sitter'">
-      {{ userService.currentUser()?.role }}
-    </span>
+    <div class="role-toggles">
+      <label class="role-toggle">
+        <input type="checkbox" [checked]="userService.currentUser()?.isOwner" [disabled]="isTogglingRole()" (change)="toggleOwner($event)" />
+        I have pets
+      </label>
+      <label class="role-toggle">
+        <input type="checkbox" [checked]="isSitter()" [disabled]="isTogglingRole()" (change)="toggleSitter($event)" />
+        I'm a sitter
+      </label>
+      @if (roleError()) {
+        <p class="message message--error">{{ roleError() }}</p>
+      }
+    </div>
 
     <form class="profile-form" [formGroup]="form" (ngSubmit)="save()">
       <div class="field">
@@ -112,8 +122,8 @@
     </form>
   </section>
 
-  <!-- Pets Section (Owner only) -->
-  @if (userService.currentUser()?.role === 'Owner') {
+  <!-- Pets Section (owners) -->
+  @if (userService.currentUser()?.isOwner) {
   <section class="pets-section">
     <div class="pets-header">
       <h2 class="pets-title">My Pets</h2>
@@ -339,8 +349,8 @@
   </section>
   } <!-- end @if Owner -->
 
-  <!-- Availability Section (Sitter only) -->
-  @if (userService.currentUser()?.role === 'Sitter') {
+  <!-- Availability Section (active sitters) -->
+  @if (isSitter()) {
   <section class="availability-section">
     <div class="availability-header">
       <h2 class="availability-title">My Availability</h2>

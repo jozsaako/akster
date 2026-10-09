@@ -23,6 +23,14 @@ export class AvailabilityService {
     return this.http.get<AvailabilityResult>(AvailabilityService.BASE_URL, { headers: this.headers });
   }
 
+  activate(): Observable<AvailabilityResult> {
+    return this.http.post<AvailabilityResult>(`${AvailabilityService.BASE_URL}/activate`, {}, { headers: this.headers });
+  }
+
+  deactivate(): Observable<AvailabilityResult> {
+    return this.http.post<AvailabilityResult>(`${AvailabilityService.BASE_URL}/deactivate`, {}, { headers: this.headers });
+  }
+
   updateAvailability(request: UpdateAvailabilityRequest): Observable<AvailabilityResult> {
     return this.http.put<AvailabilityResult>(AvailabilityService.BASE_URL, request, { headers: this.headers });
   }
