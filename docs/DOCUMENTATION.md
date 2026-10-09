@@ -33,7 +33,7 @@ Repository layout:
 | Path | Content |
 |---|---|
 | `backend/PetSitting.Api` | ASP.NET Core host: `Program.cs`, thin controllers, request contracts |
-| `backend/PetSitting.Application` | Per-subsystem managers (use cases), validators, DTOs, repository and service interfaces |
+| `backend/PetSitting.Application` | Per-subsystem managers (use cases), DTOs, repository and service interfaces |
 | `backend/PetSitting.Domain` | Entities, aggregate roots, enums, `Result` type, grouped by subsystem |
 | `backend/PetSitting.Infrastructure` | EF Core `AppDbContext`, repositories, migrations, JWT and Blob services |
 | `frontend/` | Angular 21 app (Nx-wrapped), nginx config, Dockerfile |
@@ -43,7 +43,7 @@ Repository layout:
 
 ## 1.2 Architecture decisions (from `backend/AGENTS.md` and `frontend/AGENTS.md`, the stated source of truth)
 
-**Backend:** subsystems (`Users`, `Pets`, `Availability`) as folders in the layer projects, Controller → Manager → Repository, tactical DDD in the Domain, one repository per aggregate root (no generic `IRepository<T>`), FluentValidation called from managers, `Result<T>` with an error kind for expected failures. Rejected alternatives: CQRS/MediatR (the previous design), generic Repository/Unit-of-Work, a repository per table, a project per subsystem.
+**Backend:** subsystems (`Users`, `Pets`, `Availability`) as folders in the layer projects, Controller → Manager → Repository, tactical DDD in the Domain, one repository per aggregate root (no generic `IRepository<T>`), DataAnnotations on the API request records (checked by `[ApiController]`), `Result<T>` with an error kind for expected failures. Rejected alternatives: CQRS/MediatR (the previous design), generic Repository/Unit-of-Work, a repository per table, a project per subsystem.
 **Frontend:** single Angular app (no monorepo apps), feature-folder structure, standalone components, Signals instead of NgRx, one Facade per feature, smart/dumb component split.
 
 > Note: the guides describe the *target* architecture. The backend follows its guide (the MediatR migration is complete, see "Migrating from MediatR" in 1.3). The frontend is flatter than its guide; the frontend is still flatter than the guide (no `features/` folders or facades yet, see 1.9).
@@ -59,7 +59,6 @@ Repository layout:
 | ASP.NET Core OpenAPI | 10.0.2 | Built-in API description, no Swashbuckle needed | `MapOpenApi()`, Development only |
 | Entity Framework Core + SqlServer provider | 10.0.3 | Code-first model, migrations, LINQ | Persistence, schema evolution |
 | EF Core Design | 10.0.3 | Tooling for `dotnet ef migrations` | Dev-time only (`PrivateAssets=all`) |
-| FluentValidation (+ DI extensions) | 11.x | Declarative, testable validation separated from handlers | One validator per input record, called explicitly at the top of the manager method |
 | Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.8 | Standard bearer-token auth | Validates JWTs (issuer, audience, lifetime, signing key) |
 | System.IdentityModel.Tokens.Jwt | 8.9.0 | JWT creation | `JwtTokenService` issues access tokens |
 | Azure.Identity | 1.21.0 | `DefaultAzureCredential`: managed identity in Azure, developer login locally, no secrets in code | Authenticates to Key Vault |
@@ -69,7 +68,7 @@ Repository layout:
 
 ### Layering and dependency direction
 
-`Api → Application → Domain` and `Infrastructure → Application, Domain`. The Application layer only knows interfaces (repositories, `IJwtTokenService`, `IBlobService`); Infrastructure implements them; `Program.cs` wires everything explicitly in DI (managers, repositories and `BlobService` scoped, `JwtTokenService` singleton). Only validators are auto-discovered (`AddValidatorsFromAssemblyContaining`).
+`Api → Application → Domain` and `Infrastructure → Application, Domain`. The Application layer only knows interfaces (repositories, `IJwtTokenService`, `IBlobService`); Infrastructure implements them; `Program.cs` wires everything explicitly in DI (managers, repositories and `BlobService` scoped, `JwtTokenService` singleton). Nothing is auto-discovered.
 
 **Subsystems.** The code is split by business area, as folders inside each layer project:
 
@@ -86,11 +85,11 @@ Rules between subsystems (from `backend/AGENTS.md`): a subsystem's public face i
 `Controller → I<Subsystem>Manager → Repository → EF Core → SQL Server`
 
 - **Controller** (`PetSitting.Api/Controllers/`): thin. Binds the request record, is `[Authorize]`, reads `UserId` from the JWT via `ApiControllerBase.UserId`, calls one manager method and maps the returned `Result` to an HTTP status through one shared helper in `ApiControllerBase`.
-- **Manager** (`PetSitting.Application/<Subsystem>/`): one public method per use case. Wherever a manager is injected (controllers, other managers) the field is named `_<subsystem>Manager`, e.g. `_petsManager`, with constructor parameter `petsManager`. Repositories are named the same way: `_petsRepository`, `_usersRepository`, `_availabilityRepository`. Other services take their interface name: `_blobService`, `_jwtTokenService`. Order inside a method: validate input (FluentValidation, `IValidator<T>` injected) → load through the repository → check ownership/role → call methods on the aggregate → persist through the repository → return a `Result<Dto>`.
+- **Manager** (`PetSitting.Application/<Subsystem>/`): one public method per use case. Wherever a manager is injected (controllers, other managers) the field is named `_<subsystem>Manager`, e.g. `_petsManager`, with constructor parameter `petsManager`. Repositories are named the same way: `_petsRepository`, `_usersRepository`, `_availabilityRepository`. Other services take their interface name: `_blobService`, `_jwtTokenService`. Order inside a method (input shape is already validated by the request record before the controller runs): load through the repository → check ownership/role → call methods on the aggregate → persist through the repository → return a `Result<Dto>`.
 - **Engine / Helper**: pure business logic shared by two or more managers (for example pricing). Only created when the sharing is real.
 - **Repository** (`PetSitting.Infrastructure/Persistence/Repositories/<Subsystem>/`): EF Core for one aggregate root. Returns materialized results, never `IQueryable`. A repository method persists its own aggregate (the aggregate is the transaction boundary).
 - **Failures:** expected failures are `Result.Failure(kind, message)` with a kind (`NotFound`, `Validation`, `Unauthorized`, `Forbidden`, `Conflict`). `ApiControllerBase.ToAction` maps kind → 404/400/401/403/409, so there is no text matching. Success bodies keep the frontend's `{ success, message, ... }` shape via the records in `Api/Contracts/Responses.cs`, built in the controller. Unexpected exceptions are turned into `500 { success:false, message:"An unexpected error occurred." }` by the global exception handler in `Program.cs`.
-- **Cross-cutting:** authentication/authorization via ASP.NET attributes, validation inside the manager, logging via `ILogger`. There is no pipeline behavior layer.
+- **Cross-cutting:** authentication/authorization via ASP.NET attributes, input-shape validation as DataAnnotations on the request records (`InvalidModelStateResponseFactory` in `Program.cs` keeps the `{ success, message }` body), logging via `ILogger`. There is no pipeline behavior layer.
 
 ### Why Controller → Manager → Repository (decision record)
 
@@ -100,11 +99,11 @@ The previous design was CQRS with MediatR: each use case was a command/query rec
 - Each handler was called from a single controller action, so the indirection bought consistency, not reuse.
 - MediatR 13+ is commercially licensed for larger companies.
 
-What replaced it keeps the good parts: thin controllers, one place per use case (a manager method), validators separate from logic, domain rules on aggregates, repositories per aggregate root, `Result` for expected failures.
+What replaced it keeps the good parts: thin controllers, one place per use case (a manager method), shape validation separate from logic, domain rules on aggregates, repositories per aggregate root, `Result` for expected failures.
 
 Trade-offs to know:
 - A manager can grow into a god class. Mitigation: one manager per subsystem, split by sub-area (e.g. `AuthManager` / `ProfileManager` in `Users`) when it passes about 15 methods.
-- Validation is no longer automatic: every manager method must call its validator. A missing call is a bug a reviewer must catch; keep the call as the first line of the method.
+- Validation is not in the manager: input-shape rules are DataAnnotations on the request records in `Api/Contracts/Requests.cs`. A caller that bypasses the controller (a future job, another manager) must validate its own input.
 - Subsystem boundaries are by convention. If they get violated repeatedly, an architecture test (for example NetArchTest) or a project per subsystem is the next step.
 
 ### Navigating and debugging one request (worked example: "add a pet")
@@ -116,22 +115,22 @@ Paths are relative to `backend/`. Every use case follows the same stops; replace
 | 0 | Browser call | `frontend/src/app/services/pet.service.ts` (`createPet`), triggered from `frontend/src/app/profile/profile.component.ts` | URL, JSON body, `Authorization` header. Check the Network tab first: status code and response JSON tell you which stop to jump to. |
 | 1 | Pipeline (auth) | `PetSitting.Api/Program.cs` | CORS, `UseAuthentication`/`UseAuthorization`. A `401` never reaches the controller: bad/expired token, or JWT key/issuer/audience mismatch. |
 | 2 | Controller | `PetSitting.Api/Controllers/PetsController.cs` → `CreatePet` | **Best first breakpoint.** Confirms the request arrived and `UserId` (from `ApiControllerBase.UserId`, the JWT claim) is right. |
-| 3 | Request body shape | `PetSitting.Api/Contracts/Requests.cs` (`PetRequest`; login/register bind `LoginInput`/`RegisterInput` directly) | If a field is null/default, the JSON names do not match this record (model binding failed before your code ran, a `400` with ASP.NET's own error shape). |
+| 3 | Request body shape | `PetSitting.Api/Contracts/Requests.cs` (`PetRequest`, `LoginRequest`, `RegisterRequest`, ...) | If a field is null/default, the JSON names do not match this record (model binding failed before your code ran, a `400` with ASP.NET's own error shape). |
 | 4 | **The manager method** | `PetSitting.Application/Pets/PetsManager.cs` → `CreatePetAsync` | **Where the logic is.** Validation, ownership checks and "not found"-style failures are returned from here as `Result.Failure(...)`. *Go to Definition* on the interface call in the controller lands on `IPetsManager`; use *Go to Implementation* (`Ctrl+F12`). |
-| 5 | Validator | `PetSitting.Application/Pets/Validators/PetInputValidator.cs` (shared by create and update) | Input shape rules. A failure comes back as a `Validation` result → `400 { success:false, message }`. |
+| 5 | Request record (validation) | `PetSitting.Api/Contracts/Requests.cs` → `PetRequest` (shared by create and update) | Input shape rules as DataAnnotations; they run during model binding, before the controller action. A failure → `400 { success:false, message }` via `InvalidModelStateResponseFactory` in `Program.cs`. |
 | 6 | Repository interface | `PetSitting.Application/Pets/IPetRepository.cs` | The contract the manager calls. |
 | 7 | Repository implementation | `PetSitting.Infrastructure/Persistence/Repositories/Pets/PetRepository.cs` | The EF Core query/`SaveChangesAsync`. SQL errors surface here. |
 | 8 | Model and schema | `PetSitting.Domain/Pets/Pet.cs`, `PetSitting.Infrastructure/Persistence/AppDbContext.cs`, `PetSitting.Infrastructure/Migrations/` | Entity shape, relations, delete behavior; a missing column means a missing migration. |
 | 9 | Response | `PetSitting.Application/Pets/PetDto.cs` (DTO and `ToDto()`), `PetSitting.Api/Contracts/Responses.cs` (wire wrapper) | The controller builds the wrapper and `ApiControllerBase.ToAction` maps the `Result` to the HTTP status. |
 
-**How to find any use case:** the controller is the index of the subsystem. The action calls one manager method; open it, and the validator, repository interface and DTO are in the same subsystem folder.
+**How to find any use case:** the controller is the index of the subsystem. The action calls one manager method; open it; the request record, repository interface and DTO are in the same subsystem folder.
 
 **Debugging checklist by symptom**
 
 | Symptom | Likely stop | Check |
 |---|---|---|
 | 401 | 1 | Token missing/expired, `Jwt:*` settings, `Jwt--Key` loaded? (backend log "Loaded Jwt:Key from Key Vault.") |
-| 400 with `{ success:false, message }` | 4 or 5 | Message text: validator rule (5) or manager failure (4). Search the repo for that exact string; it points to the file. |
+| 400 with `{ success:false, message }` | 4 or 5 | Message text: request-record rule (5) or manager failure (4). Search the repo for that exact string; it points to the file. |
 | 400 with ASP.NET `errors` object | 3 | Body does not match the request record |
 | 404 | 4 | Manager returned a `NotFound` failure (also what a wrong-owner pet looks like) |
 | 500 "An unexpected error occurred." | 4-7 | Exception swallowed by the global handler. Run locally and read the console, or break on exceptions; the message never reaches the client. |
@@ -139,7 +138,7 @@ Paths are relative to `backend/`. Every use case follows the same stops; replace
 | Works locally, fails in Azure | config | App settings / Key Vault (section 1.6), DB connectivity and migrations |
 
 **Adding a new use case to an existing subsystem (same map in reverse)**
-1. Add the method to `I<Subsystem>Manager` and implement it in `<Subsystem>Manager`; add a validator in `Validators/` if it takes input (and call it first).
+1. Add the method to `I<Subsystem>Manager` and implement it in `<Subsystem>Manager`; if it takes input, add the DataAnnotations (with `ErrorMessage`) to its request record.
 2. Add the controller action in `Api/Controllers/<Subsystem>Controller.cs`, and a request record in `Api/Contracts/Requests.cs` if it takes a body.
 3. If it needs new data access, add the method to the repository interface (`Application/<Subsystem>/`) and implement it in `Infrastructure/Persistence/Repositories/<Subsystem>/`.
 4. If the schema changes, add a migration (`dotnet ef migrations add <Name>` with `PetSitting.Infrastructure` as the project and `PetSitting.Api` as the startup project).
@@ -187,20 +186,20 @@ The worked example is **illustrative** ("an owner requests a booking from a sitt
 #### Step 3: Repository (aggregate root only)
 - `PetSitting.Application/Bookings/IBookingRepository.cs`: only the methods the use cases need (`GetByIdAsync`, `AddAsync`, `HasOverlapAsync(sitterId, range)`). One repository per **aggregate root**, no generic `IRepository<T>`, none for child entities.
 - `PetSitting.Infrastructure/Persistence/Repositories/Bookings/BookingRepository.cs`: the implementation (`Include` what the manager needs; return `null` when not found; return materialized results; persist the aggregate with `SaveChangesAsync`).
-- **Register it in `PetSitting.Api/Program.cs`:** `builder.Services.AddScoped<IBookingRepository, BookingRepository>();`. Only validators are auto-discovered. A missing line compiles fine and fails at runtime with "Unable to resolve service for type IBookingRepository".
+- **Register it in `PetSitting.Api/Program.cs`:** `builder.Services.AddScoped<IBookingRepository, BookingRepository>();`. A missing line compiles fine and fails at runtime with "Unable to resolve service for type IBookingRepository".
 
 #### Step 4: The manager (`PetSitting.Application/Bookings/`)
 1. `BookingDto.cs`: the DTO and a `ToDto()` mapping extension, exactly like `Pets/PetDto.cs`. **Never return the entity**: it carries navigation properties and sensitive fields (for example `PasswordHash` on `User`).
-2. `Validators/RequestBookingValidator.cs` (FluentValidation): **shape and format only**: ids > 0, end after start, start not in the past, text lengths. Anything that needs the database belongs in the manager.
+2. DataAnnotations on `RequestBookingRequest` in `Api/Contracts/Requests.cs`: **shape and format only**: ids > 0, end after start, start not in the past, text lengths. Anything that needs the database belongs in the manager.
 3. `IBookingsManager.cs` and `BookingsManager.cs`, method `RequestBookingAsync(int userId, RequestBookingInput input, ...)` returning `Result<BookingDto>`. `userId` comes from the JWT (the controller passes it), never from the body. Inside, in this order:
-   1. validate the input with the injected `IValidator<RequestBookingInput>`,
+   1. (input shape is already validated by the request record; nothing to do here),
    2. the caller owns the pet: ask `IPetsManager`, not `IPetRepository` (return "Pet not found." for both missing and foreign pets, so ids cannot be probed),
    3. the target user exists and has role Sitter: ask `IUsersManager`,
    4. the sitter's availability and capacity allow it: ask `IAvailabilityManager`, do not copy the data,
    5. no overlapping accepted booking (own repository),
    6. create the aggregate through its constructor or factory so the domain rules run, persist via `IBookingRepository`, log with `ILogger`, return `Result.Success(dto)`.
    - Keep the manager an **orchestrator**: load, call domain methods, save. Rules about the booking itself live on `Booking`.
-   - A read use case (`GetMyBookingsAsync`) is the same minus the validator: read and return DTOs. Never modify state in a read.
+   - A read use case (`GetMyBookingsAsync`) is the same minus the request body: read and return DTOs. Never modify state in a read.
 4. Failure convention: return `Result.Failure(kind, message)`. Use `NotFound` only for genuine 404 cases.
 
 #### Step 5: API (`PetSitting.Api/`)
@@ -230,7 +229,7 @@ The worked example is **illustrative** ("an owner requests a booking from a sitt
 - [ ] Domain rule lives on the entity or value object, not only in the manager
 - [ ] `DbSet`, relationships and **migration generated, read and tested locally**
 - [ ] Repository only for an aggregate root; interface, implementation and **`AddScoped` in `Program.cs`**
-- [ ] Manager method calls its validator first; other subsystems used only through their manager interface
+- [ ] Request record carries the shape validation; other subsystems used only through their manager interface
 - [ ] `UserId` from the JWT; **ownership and role checked**; DTOs returned, no entities
 - [ ] `Result.Failure` uses the right error kind; `NotFound` only for real 404s
 - [ ] Controller is `[Authorize]` and thin; request record added; manager registered
@@ -242,7 +241,7 @@ The worked example is **illustrative** ("an owner requests a booking from a sitt
 | Mistake | What happens |
 |---|---|
 | Manager or repository not registered in `Program.cs` | Runtime DI error on the first request, not at build time |
-| Forgetting to call the validator in a manager method | Invalid input reaches the domain and the database |
+| Forgetting the DataAnnotations on a new request record | Invalid input reaches the domain and the database |
 | Naming an injected dependency `_pets` / `_users` / `_repository` / `_blobs` | Reads like a collection and hides what the dependency is; use `_petsManager`, `_petsRepository`, `_blobService` |
 | Injecting another subsystem's repository | Bypasses that subsystem's rules and ownership checks; call its manager |
 | A repository for a child entity (for example `PetPictureRepository`) | Lets code change children without going through the aggregate root's rules |
@@ -250,14 +249,14 @@ The worked example is **illustrative** ("an owner requests a booking from a sitt
 | Checking that the record exists but not that it belongs to the caller | Cross-user data access |
 | Reordering enum members | Existing rows silently change meaning (stored as int) |
 | Returning the EF entity | Leaks fields and can cause JSON cycles |
-| Database-dependent checks in the validator | Validators should only check input shape |
+| Database-dependent checks in a request record | Request records should only check input shape |
 | Editing a migration after it was deployed | Production and the migration history diverge; add a new migration instead |
 | `DateTime.Now` | Wrong across time zones; use `DateTime.UtcNow` |
 | Forgetting the frontend error state | The user sees a frozen UI on 400/401 |
 
 ### Startup behaviour (`Program.cs`)
 
-1. Registers controllers, OpenAPI, CORS (default policy), `AppDbContext` (connection string `ConnectionStrings:DefaultConnection`), managers, repositories, services and validators (explicit registrations; validators are found by assembly scan).
+1. Registers controllers, OpenAPI, CORS (default policy), `AppDbContext` (connection string `ConnectionStrings:DefaultConnection`), managers, repositories, services (explicit registrations, no assembly scan).
 2. **JWT key bootstrap:** if `Jwt:Key` is not configured, read secret `Jwt--Key` from Key Vault (`KeyVaultUri`, default `https://akster-vault.vault.azure.net/`); if missing, generate 64 random bytes, store them in Key Vault and use them. If Key Vault is unreachable, startup continues and authentication is simply not registered.
 3. Adds the Key Vault configuration provider.
 4. **Auto-migration:** `db.Database.Migrate()` on startup with up to 10 retries, 5 s apart (lets the DB container come up first).

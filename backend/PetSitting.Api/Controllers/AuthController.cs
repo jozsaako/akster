@@ -17,12 +17,12 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginInput input) =>
-        ToAction(await _usersManager.LoginAsync(input), a => ToResponse("Login successful.", a));
+    public async Task<IActionResult> Login([FromBody] LoginRequest r) =>
+        ToAction(await _usersManager.LoginAsync(new LoginInput(r.Email, r.Password)), a => ToResponse("Login successful.", a));
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterInput input) =>
-        ToAction(await _usersManager.RegisterAsync(input), a => ToResponse("Registration successful.", a));
+    public async Task<IActionResult> Register([FromBody] RegisterRequest r) =>
+        ToAction(await _usersManager.RegisterAsync(new RegisterInput(r.Email, r.Password, r.FirstName, r.LastName)), a => ToResponse("Registration successful.", a));
 
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request) =>

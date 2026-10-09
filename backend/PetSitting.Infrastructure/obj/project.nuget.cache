@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "uQjVG95U5ls=",
+  "dgSpecHash": "u0qk79QDOzE=",
   "success": true,
   "projectFilePath": "E:\\dev\\akster\\backend\\PetSitting.Infrastructure\\PetSitting.Infrastructure.csproj",
   "expectedPackageFiles": [
@@ -8,7 +8,6 @@
     "C:\\Users\\Akos\\.nuget\\packages\\azure.identity\\1.14.2\\azure.identity.1.14.2.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\azure.storage.blobs\\12.28.0\\azure.storage.blobs.12.28.0.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\azure.storage.common\\12.27.0\\azure.storage.common.12.27.0.nupkg.sha512",
-    "C:\\Users\\Akos\\.nuget\\packages\\fluentvalidation\\12.0.0\\fluentvalidation.12.0.0.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\10.0.2\\microsoft.bcl.asyncinterfaces.10.0.2.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.bcl.cryptography\\9.0.4\\microsoft.bcl.cryptography.9.0.4.nupkg.sha512",
@@ -73,18 +72,5 @@
     "C:\\Users\\Akos\\.nuget\\packages\\system.security.cryptography.pkcs\\9.0.4\\system.security.cryptography.pkcs.9.0.4.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\system.security.cryptography.protecteddata\\9.0.4\\system.security.cryptography.protecteddata.9.0.4.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1603",
-      "level": "Warning",
-      "message": "PetSitting.Application depends on FluentValidation (>= 11.13.0) but FluentValidation 11.13.0 was not found. FluentValidation 12.0.0 was resolved instead.",
-      "projectPath": "E:\\dev\\akster\\backend\\PetSitting.Infrastructure\\PetSitting.Infrastructure.csproj",
-      "warningLevel": 1,
-      "filePath": "E:\\dev\\akster\\backend\\PetSitting.Infrastructure\\PetSitting.Infrastructure.csproj",
-      "libraryId": "FluentValidation",
-      "targetGraphs": [
-        "net10.0"
-      ]
-    }
-  ]
+  "logs": []
 }

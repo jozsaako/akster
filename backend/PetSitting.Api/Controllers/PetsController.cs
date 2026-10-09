@@ -56,5 +56,5 @@ public class PetsController : ApiControllerBase
     public async Task<IActionResult> DeletePicture(int id, int pictureId) =>
         ToAction(await _petsManager.DeletePictureAsync(UserId, id, pictureId), pet => new PetResponse(true, "Picture deleted.", pet));
 
-    private static PetInput ToInput(PetRequest r) => new(r.Name, r.Age, r.Gender, r.Type, r.SpecialNeeds);
+    private static PetInput ToInput(PetRequest r) => new(r.Name, r.Age, r.Gender!.Value, r.Type!.Value, r.SpecialNeeds);
 }

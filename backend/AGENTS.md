@@ -7,7 +7,7 @@
 ## Stack
 - C# / ASP.NET Core
 - Entity Framework Core
-- FluentValidation for input validation (called explicitly from managers)
+- DataAnnotations on the API request records for input validation (checked by `[ApiController]` before the action runs)
 
 ## Context
 - Solo developer, long-term project (multi-year horizon).
@@ -23,7 +23,7 @@ Subsystems are **folders inside the existing layer projects**, not separate proj
 
 ```
 PetSitting.Domain/<Subsystem>/            entities, aggregate roots, value objects
-PetSitting.Application/<Subsystem>/       manager (+ interface), repository interfaces, validators, DTOs, engines/helpers
+PetSitting.Application/<Subsystem>/       manager (+ interface), repository interfaces, DTOs, engines/helpers
 PetSitting.Infrastructure/Persistence/Repositories/<Subsystem>/   repository implementations
 PetSitting.Api/Controllers/               one controller per subsystem (or per sub-area, e.g. AuthController)
 ```
@@ -32,16 +32,16 @@ PetSitting.Api/Controllers/               one controller per subsystem (or per s
 
 ### 2. Request flow: Controller → Manager → Repository
 ```
-Controller        HTTP only: bind request, [Authorize], take UserId from the JWT, call the manager, map Result to HTTP status
-Manager           one per subsystem (UsersManager, PetsManager, ...): use-case orchestration, validation, ownership checks, logging
+Controller        HTTP only: bind and shape-validate the request (DataAnnotations), [Authorize], take UserId from the JWT, call the manager, map Result to HTTP status
+Manager           one per subsystem (UsersManager, PetsManager, ...): use-case orchestration, business/database checks, ownership checks, logging
 Engine / Helper   pure business logic shared by 2+ managers (e.g. PricingEngine). Created only when sharing is real, never up front
 Repository        EF Core access for one aggregate root
 Domain            aggregates enforce their own invariants
 ```
 - A manager has **one public method per use case** (`CreatePetAsync`, `CancelBookingAsync`). If a manager grows past roughly 15 methods or mixes unrelated areas, split it by sub-area (e.g. `AuthManager` and `ProfileManager` inside `Users`), not into a god class.
-- Managers are registered explicitly in `PetSitting.Api/Program.cs`. Validators are the only thing found by assembly scan.
+- Managers are registered explicitly in `PetSitting.Api/Program.cs`. Nothing is found by assembly scan.
 - **Naming:** a manager is injected as a field named after its interface without the `I`, in camelCase: `IPetsManager` → `_petsManager`, `IUsersManager` → `_usersManager` (constructor parameter `petsManager`). A repository is injected as `_<subsystem>Repository`: `IPetRepository` → `_petsRepository`, `IUserRepository` → `_usersRepository`, `ISitterAvailabilityRepository` → `_availabilityRepository`. Never a bare noun like `_pets` or `_users` (it reads like a collection), and never a generic `_repository`. Other injected services follow the same rule (field = interface name without the `I`, camelCase): `IBlobService` → `_blobService`, `IJwtTokenService` → `_jwtTokenService`.
-- No mediator, no dispatcher, no pipeline behaviors. Cross-cutting concerns live where they belong: validation inside the manager, authentication/authorization via ASP.NET attributes, exception-to-HTTP mapping in the global exception handler, logging via `ILogger`.
+- No mediator, no dispatcher, no pipeline behaviors. Cross-cutting concerns live where they belong: input-shape validation on the request records (DataAnnotations), authentication/authorization via ASP.NET attributes, exception-to-HTTP mapping in the global exception handler, logging via `ILogger`.
 
 ### 3. Subsystem boundaries
 - Each subsystem exposes **one public contract**: `I<Subsystem>Manager` plus the DTOs it returns. That interface is what controllers and other subsystems use.
@@ -68,8 +68,10 @@ The `Domain` project contains:
 **Explicitly rejected:** Generic Repository + Unit of Work around every entity. `DbContext`/`DbSet` already provides this.
 
 ### 6. Validation
-- FluentValidation validators sit next to the manager (`Application/<Subsystem>/Validators/`). They check **input shape only** (lengths, ranges, formats), never the database.
-- The manager injects `IValidator<T>` and validates at the top of the method, returning a validation failure `Result`. Business and database-dependent checks come after.
+- Input-shape rules (required, lengths, ranges, formats, enum values) are DataAnnotations on the request records in `Api/Contracts/Requests.cs`, with the user-facing `ErrorMessage`. `[ApiController]` rejects a bad body with 400 before the action runs; `InvalidModelStateResponseFactory` in `Program.cs` turns it into `{ success:false, message }` with the first error. Attributes on a record go on the constructor **parameter** (`[property:]` validation attributes throw at runtime); only `[property: JsonConverter]` needs `property:`.
+- Enum fields are typed enums (nullable + `[Required]` on the request so a missing value is not silently the first member) and are mapped to the manager input in the controller. Managers receive already-valid input and do not re-validate its shape.
+- Business and database-dependent checks stay in the manager and return a `Validation`/`Conflict`/... failure `Result`.
+- A caller that bypasses the controller (a future job, another manager) must validate its own input; the manager does not.
 
 ### 7. Result pattern for expected failures
 - Manager methods return `Result<T>` (or `Result`). `Failure` carries an **error kind** (`NotFound`, `Validation`, `Unauthorized`, `Forbidden`, `Conflict`) and a message. The controller maps the kind to HTTP status (404, 400, 401, 403, 409) in one shared place in `ApiControllerBase` (`ToAction`). The success message and JSON wrapper (`{ success, message, ... }`, records in `Api/Contracts/Responses.cs`) are built in the controller, so managers return plain DTOs.
@@ -106,7 +108,6 @@ PetSitting.Application/
         PetsManager.cs
         IPetRepository.cs
         PetDto.cs, PetInput.cs
-        Validators/PetInputValidator.cs
         Engines/                   (only if logic is shared by 2+ managers)
     Users/        ...same shape
     Availability/ ...same shape
@@ -128,7 +129,7 @@ PetSitting.Api/
 ```
 
 ## Rules for AI Assistants Working on This Codebase
-1. A new use case is a new method on the owning subsystem's manager (and interface), plus a validator if it takes input. Do not create per-use-case classes or folders.
+1. A new use case is a new method on the owning subsystem's manager (and interface), plus a request record with DataAnnotations in `Api/Contracts/Requests.cs` if it takes input. Do not create per-use-case classes or folders.
 2. Business rules and invariants belong on the Domain aggregate, not in the manager or controller. Managers orchestrate.
 3. Controllers are thin: no logic, no repository access, no EF.
 4. Never use another subsystem's repository or entities. Call its `I<Subsystem>Manager`.
@@ -136,7 +137,7 @@ PetSitting.Api/
 6. Do not reintroduce MediatR, a mediator, or pipeline behaviors; do not propose a project per subsystem, unless the user explicitly asks to revisit the architecture itself.
 7. Do not add an Engine or Helper until two managers actually need the same logic. Do not add an interface for anything that is not a manager or a repository.
 8. Use `Result<T>` with an error kind for expected failures; exceptions only for unexpected ones. Never infer HTTP status from message text.
-9. Register every new manager, repository and service in `PetSitting.Api/Program.cs`. Only validators are discovered automatically (`AddValidatorsFromAssemblyContaining`).
+9. Register every new manager, repository and service in `PetSitting.Api/Program.cs`. Nothing is discovered automatically.
 10. Take `UserId` from the JWT (`ApiControllerBase.UserId`), never from a request body, and check that the loaded record belongs to that user. Return DTOs, never entities.
 11. Name injected managers `_<subsystem>Manager` (`_petsManager`) repositories `_<subsystem>Repository` (`_petsRepository`) and other services after their interface (`_blobService`), never `_pets`/`_users`/`_repository`/`_blobs`.
 12. This is backend-only guidance; see `frontend/AGENTS.md` for frontend rules.

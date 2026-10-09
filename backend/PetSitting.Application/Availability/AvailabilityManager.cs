@@ -1,5 +1,4 @@
 using System.Text.Json;
-using FluentValidation;
 using PetSitting.Application.Common;
 using PetSitting.Domain;
 using PetSitting.Domain.Availability;
@@ -14,12 +13,10 @@ public class AvailabilityManager : IAvailabilityManager
     private static readonly string[] ValidPetTypes = ["Dog", "Cat"];
 
     private readonly ISitterAvailabilityRepository _availabilityRepository;
-    private readonly IValidator<UpsertAvailabilityInput> _upsertValidator;
 
-    public AvailabilityManager(ISitterAvailabilityRepository availabilityRepository, IValidator<UpsertAvailabilityInput> upsertValidator)
+    public AvailabilityManager(ISitterAvailabilityRepository availabilityRepository)
     {
         _availabilityRepository = availabilityRepository;
-        _upsertValidator = upsertValidator;
     }
 
     public async Task<Result<AvailabilityDto?>> GetAsync(int userId, CancellationToken cancellationToken = default)
@@ -30,9 +27,6 @@ public class AvailabilityManager : IAvailabilityManager
 
     public async Task<Result<AvailabilityDto>> UpsertAsync(int userId, UpsertAvailabilityInput input, CancellationToken cancellationToken = default)
     {
-        if (_upsertValidator.FirstError(input) is { } error)
-            return Result<AvailabilityDto>.Fail(ErrorKind.Validation, error);
-
         var schedule = new Dictionary<string, List<string>>();
         foreach (var day in ValidDays)
         {

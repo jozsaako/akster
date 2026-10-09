@@ -1,4 +1,3 @@
-using FluentValidation;
 using Microsoft.Extensions.Logging;
 using PetSitting.Application.Common;
 using PetSitting.Application.Users;
@@ -14,20 +13,17 @@ public class PetsManager : IPetsManager
     private readonly IPetRepository _petsRepository;
     private readonly IUsersManager _usersManager;
     private readonly IBlobService _blobService;
-    private readonly IValidator<PetInput> _validator;
     private readonly ILogger<PetsManager> _logger;
 
     public PetsManager(
         IPetRepository petsRepository,
         IUsersManager usersManager,
         IBlobService blobService,
-        IValidator<PetInput> validator,
         ILogger<PetsManager> logger)
     {
         _petsRepository = petsRepository;
         _usersManager = usersManager;
         _blobService = blobService;
-        _validator = validator;
         _logger = logger;
     }
 
@@ -47,20 +43,16 @@ public class PetsManager : IPetsManager
 
     public async Task<Result<PetDto>> CreateAsync(int userId, PetInput input, CancellationToken cancellationToken = default)
     {
-        if (_validator.FirstError(input) is { } error)
-            return Result<PetDto>.Fail(ErrorKind.Validation, error);
-
         if (!await _usersManager.ExistsAsync(userId, cancellationToken))
             return Result<PetDto>.Fail(ErrorKind.NotFound, "User not found.");
 
-        // validator guarantees these parse
         var pet = new Pet
         {
             UserId = userId,
             Name = input.Name.Trim(),
             Age = input.Age,
-            Gender = Enum.Parse<PetGender>(input.Gender, true),
-            Type = Enum.Parse<PetType>(input.Type, true),
+            Gender = input.Gender,
+            Type = input.Type,
             SpecialNeeds = input.SpecialNeeds?.Trim(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -74,17 +66,13 @@ public class PetsManager : IPetsManager
 
     public async Task<Result<PetDto>> UpdateAsync(int userId, int petId, PetInput input, CancellationToken cancellationToken = default)
     {
-        if (_validator.FirstError(input) is { } error)
-            return Result<PetDto>.Fail(ErrorKind.Validation, error);
-
         var pet = await LoadOwnedAsync(userId, petId, cancellationToken);
         if (pet == null) return Result<PetDto>.Fail(ErrorKind.NotFound, PetNotFound);
 
-        // validator guarantees these parse
         pet.Name = input.Name.Trim();
         pet.Age = input.Age;
-        pet.Gender = Enum.Parse<PetGender>(input.Gender, true);
-        pet.Type = Enum.Parse<PetType>(input.Type, true);
+        pet.Gender = input.Gender;
+        pet.Type = input.Type;
         pet.SpecialNeeds = input.SpecialNeeds?.Trim();
         pet.UpdatedAt = DateTime.UtcNow;
 

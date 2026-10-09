@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "PELq5EhbB/A=",
+  "dgSpecHash": "ANMX3qe6vuc=",
   "success": true,
   "projectFilePath": "E:\\dev\\akster\\backend\\PetSitting.Api\\PetSitting.Api.csproj",
   "expectedPackageFiles": [
@@ -10,8 +10,6 @@
     "C:\\Users\\Akos\\.nuget\\packages\\azure.security.keyvault.secrets\\4.9.0\\azure.security.keyvault.secrets.4.9.0.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\azure.storage.blobs\\12.28.0\\azure.storage.blobs.12.28.0.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\azure.storage.common\\12.27.0\\azure.storage.common.12.27.0.nupkg.sha512",
-    "C:\\Users\\Akos\\.nuget\\packages\\fluentvalidation\\12.0.0\\fluentvalidation.12.0.0.nupkg.sha512",
-    "C:\\Users\\Akos\\.nuget\\packages\\fluentvalidation.dependencyinjectionextensions\\11.11.0\\fluentvalidation.dependencyinjectionextensions.11.11.0.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.8\\microsoft.aspnetcore.authentication.jwtbearer.10.0.8.nupkg.sha512",
     "C:\\Users\\Akos\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.2\\microsoft.aspnetcore.openapi.10.0.2.nupkg.sha512",
@@ -65,18 +63,6 @@
     "C:\\Users\\Akos\\.nuget\\packages\\system.security.cryptography.protecteddata\\9.0.4\\system.security.cryptography.protecteddata.9.0.4.nupkg.sha512"
   ],
   "logs": [
-    {
-      "code": "NU1603",
-      "level": "Warning",
-      "message": "FluentValidation.DependencyInjectionExtensions 11.11.0 depends on FluentValidation (>= 11.13.0) but FluentValidation 11.13.0 was not found. FluentValidation 12.0.0 was resolved instead.",
-      "projectPath": "E:\\dev\\akster\\backend\\PetSitting.Api\\PetSitting.Api.csproj",
-      "warningLevel": 1,
-      "filePath": "E:\\dev\\akster\\backend\\PetSitting.Api\\PetSitting.Api.csproj",
-      "libraryId": "FluentValidation",
-      "targetGraphs": [
-        "net10.0"
-      ]
-    },
     {
       "code": "NU1903",
       "level": "Warning",

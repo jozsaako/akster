@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using Azure.Security.KeyVault.Secrets;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using PetSitting.Infrastructure.Persistence;
 using PetSitting.Application.Availability;
 using PetSitting.Application.Common;
@@ -20,7 +20,25 @@ Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    // Request-shape validation failures (DataAnnotations, JSON binding) keep the { success, message } contract.
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        // JSON binding failures are keyed "$" / "$.field"; report them first, otherwise the null body adds a misleading "field is required".
+        var json = context.ModelState.FirstOrDefault(e => e.Key.StartsWith('$') && e.Value!.Errors.Count > 0);
+        var message = json.Key switch
+        {
+            "$" => "Invalid request body.",
+            { } key => $"Invalid value for '{key[2..]}'.",
+            null => context.ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .FirstOrDefault(m => !string.IsNullOrEmpty(m)) ?? "Invalid request."
+        };
+        return new BadRequestObjectResult(new { success = false, message });
+    };
+});
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -52,9 +70,6 @@ builder.Services.AddScoped<IAvailabilityManager, AvailabilityManager>();
 // Add services
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
-
-// Add FluentValidation (validators are found by assembly scan; managers call them explicitly)
-builder.Services.AddValidatorsFromAssemblyContaining<UsersManager>();
 
 // Configure JWT authentication
 // Attempt to load Jwt:Key from Key Vault or create it if missing

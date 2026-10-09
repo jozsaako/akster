@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using FluentValidation;
 using Microsoft.Extensions.Logging;
 using PetSitting.Application.Common;
 using PetSitting.Domain;
@@ -15,34 +14,22 @@ public class UsersManager : IUsersManager
     private readonly IUserRepository _usersRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IBlobService _blobService;
-    private readonly IValidator<LoginInput> _loginValidator;
-    private readonly IValidator<RegisterInput> _registerValidator;
-    private readonly IValidator<UpdateProfileInput> _profileValidator;
     private readonly ILogger<UsersManager> _logger;
 
     public UsersManager(
         IUserRepository usersRepository,
         IJwtTokenService jwtTokenService,
         IBlobService blobService,
-        IValidator<LoginInput> loginValidator,
-        IValidator<RegisterInput> registerValidator,
-        IValidator<UpdateProfileInput> profileValidator,
         ILogger<UsersManager> logger)
     {
         _usersRepository = usersRepository;
         _jwtTokenService = jwtTokenService;
         _blobService = blobService;
-        _loginValidator = loginValidator;
-        _registerValidator = registerValidator;
-        _profileValidator = profileValidator;
         _logger = logger;
     }
 
     public async Task<Result<AuthResult>> LoginAsync(LoginInput input, CancellationToken cancellationToken = default)
     {
-        if (_loginValidator.FirstError(input) is { } error)
-            return Result<AuthResult>.Fail(ErrorKind.Validation, error);
-
         var user = await _usersRepository.GetByEmailAsync(input.Email, cancellationToken);
         if (user == null || !VerifyPassword(input.Password, user.PasswordHash))
             return Result<AuthResult>.Fail(ErrorKind.Unauthorized, "Invalid email or password.");
@@ -58,9 +45,6 @@ public class UsersManager : IUsersManager
 
     public async Task<Result<AuthResult>> RegisterAsync(RegisterInput input, CancellationToken cancellationToken = default)
     {
-        if (_registerValidator.FirstError(input) is { } error)
-            return Result<AuthResult>.Fail(ErrorKind.Validation, error);
-
         if (await _usersRepository.GetByEmailAsync(input.Email, cancellationToken) != null)
             return Result<AuthResult>.Fail(ErrorKind.Conflict, "User with this email already exists.");
 
@@ -128,9 +112,6 @@ public class UsersManager : IUsersManager
 
     public async Task<Result<AuthResult>> UpdateProfileAsync(int userId, UpdateProfileInput input, CancellationToken cancellationToken = default)
     {
-        if (_profileValidator.FirstError(input) is { } error)
-            return Result<AuthResult>.Fail(ErrorKind.Validation, error);
-
         var user = await _usersRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null) return Result<AuthResult>.Fail(ErrorKind.NotFound, UserNotFound);
 
